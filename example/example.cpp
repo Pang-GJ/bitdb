@@ -1,7 +1,6 @@
-#include "Hello.h"
+#include <iostream>
 
-int main(int argc, char *argv[]) {
-  Hello hello;
-  hello.DoSomething();
+int main(int argc, char* argv[]) {
+  std::cout << "Hello" << std::endl;
   return 0;
 }

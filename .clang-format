@@ -1,6 +1,6 @@
 BasedOnStyle: Google
 DerivePointerAlignment: false
-PointerAlignment: Right
+PointerAlignment: Left
 ColumnLimit: 80
 
 # Default for clang-8, changed in later clangs. Set explicitly for forwards
