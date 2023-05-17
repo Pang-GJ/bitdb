@@ -3,6 +3,7 @@
 #include <cassert>
 #include <cstddef>
 #include <cstring>
+#include <functional>
 #include <string>
 
 // ready-only, to replace std::string
@@ -72,3 +73,13 @@ inline bool operator<(const Bytes& x, const Bytes& y) {
 inline bool operator<=(const Bytes& x, const Bytes& y) {
   return x.compare(y) <= 0;
 }
+
+namespace std {
+template <>
+struct hash<Bytes> {
+  size_t operator()(const Bytes& b) const {
+    return std::hash<const char*>{}(b.data());
+  }
+};
+
+}  // namespace std
