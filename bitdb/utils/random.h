@@ -5,20 +5,25 @@
 // package.
 #include <cstdint>
 #include <cstdlib>
+#include <ctime>
+#include <random>
+
 class Random {
  private:
   uint32_t seed_;
+  std::default_random_engine engine_;
 
  public:
-  explicit Random(uint32_t s) : seed_(s & 0x7fffffffU) {
-    // Avoid bad seeds.
-    if (seed_ == 0 || seed_ == 2147483647L) {
-      seed_ = 1;
+  explicit Random(uint32_t s = 0) : seed_(s) {
+    if (seed_ > 0) {
+      engine_.seed(seed_);
+    } else {
+      engine_.seed(std::time(nullptr));
     }
-    srand(seed_);
   }
+
+  /** 谷歌 leveldb 实现
   uint32_t Next() {
-    /** 谷歌 leveldb 实现
     static const uint32_t M = 2147483647L;  // 2^31-1 // NOLINT
     static const uint64_t A = 16807;  // bits 14, 8, 7, 5, 2, 1, 0 // NOLINT
     // We are computing
@@ -38,9 +43,15 @@ class Random {
       seed_ -= M;
     }
     return seed_;
-    **/
     return rand();
   }
+  **/
+
+  uint32_t GetSimpleRandomNum() { return rand(); }
+  uint32_t GetRandomNum() { return engine_(); }
+
+  uint32_t Next() { return GetSimpleRandomNum(); }
+
   // Returns a uniformly distributed value in the range [0..n-1]
   // REQUIRES: n > 0
   uint32_t Uniform(int n) { return Next() % n; }

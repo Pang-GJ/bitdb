@@ -76,6 +76,6 @@ char* Arena::AllocateAligned(size_t bytes) {
   } else {
     result = AllocateFallback(needed);
   }
-  assert(reinterpret_cast<uintptr_t>(result) & (align - 1) == 0);
+  assert((reinterpret_cast<uintptr_t>(result) & (align - 1)) == 0);
   return result;
 }
