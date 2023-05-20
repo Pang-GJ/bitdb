@@ -18,10 +18,10 @@ class Bytes {
 
   Bytes(const char* data, size_t size) : data_(data), size_(size) {}
 
-  explicit Bytes(const std::string& str)
+  Bytes(const std::string& str)  // NOLINT
       : data_(str.data()), size_(str.size()) {}
 
-  explicit Bytes(const char* str) : data_(str), size_(std::strlen(str)) {}
+  Bytes(const char* str) : data_(str), size_(std::strlen(str)) {}  // NOLINT
 
   char operator[](size_t n) const {
     assert(n < size());
