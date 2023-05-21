@@ -5,6 +5,7 @@
 #include "bitdb/io/io_interface.h"
 #include "bitdb/status.h"
 #include "bitdb/utils/bytes.h"
+#include "memory"
 
 namespace bitdb::data {
 
@@ -16,7 +17,11 @@ struct DataFile {
   DataFile(std::string_view dir_path, uint32_t file_id);
 
   static Status OpenDataFile(std::string_view path, uint32_t file_id,
-                             std::unique_ptr<DataFile>* data_file_ptr);
+                             std::unique_ptr<DataFile>* data_file_ptr) {
+    auto data_file = new DataFile(path, file_id);
+    data_file_ptr->reset(data_file);
+    return Status::Ok();
+  }
 
   Status ReadLogRecord(int64_t offset, LogRecord* log_record);
   Status Write(const Bytes& buf);
