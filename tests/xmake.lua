@@ -1,12 +1,13 @@
 add_requires("doctest")
 add_requires("spdlog", {system=false, configs = {header_only = true, fmt_external=true}})
-add_requireconfs("spdlog.fmt", {override = true, version = "9.1.0", configs = {header_only = true}})
+add_requires("fmt", {system=false})
 
-target("test_hello")
+target("test_status")
   set_kind("binary")
   set_group("tests")
-  add_files("$(projectdir)/tests/test_hello.cpp")
-  add_packages("doctest")
+  add_files("$(projectdir)/tests/test_status.cpp")
+  add_packages("doctest", "fmt", "spdlog")
+  add_deps("bitdb")
 
 target("test_fileio")
   set_kind("binary")
