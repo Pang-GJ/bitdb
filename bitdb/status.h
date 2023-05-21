@@ -13,9 +13,7 @@ namespace bitdb {
                      std::string_view msg2 = std::string_view()) { \
     return Status(StatusCode::k##name, msg, msg2);                 \
   }                                                                \
-  inline bool Is##name(const Status& s) {                          \
-    return s.code() == StatusCode::k##name;                        \
-  }
+  inline bool Is##name() { return code() == StatusCode::k##name; }
 
 #define REGISTER_STATUS_TOSTRING(name, msg) \
   { StatusCode::k##name, msg }
@@ -26,6 +24,8 @@ class Status {
 
   std::string ToString() const;
 
+  // Ok will be special, it doesn't need arg sometime
+  static Status Ok() { return Status(); }
   REGISTER_STATUS_FUNC(Ok)
   REGISTER_STATUS_FUNC(NotFound)
   REGISTER_STATUS_FUNC(Corruption)
@@ -73,5 +73,14 @@ class Status {
   StatusCode code_;
   std::string state_;
 };
+
+// Status 的 CHECK 宏
+#define CHECK_OK(expression)  \
+  do {                        \
+    auto status = expression; \
+    if (!status.IsOk()) {     \
+      return status;          \
+    }                         \
+  } while (false)
 
 }  // namespace bitdb
