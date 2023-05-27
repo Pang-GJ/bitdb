@@ -1,5 +1,6 @@
 #pragma once
 
+#include <cstdio>
 #include <map>
 #include <string>
 #include "bitdb/utils/bytes.h"
@@ -32,6 +33,8 @@ class Status {
   REGISTER_STATUS_FUNC(InvalidArgument)
   REGISTER_STATUS_FUNC(NotSupported)
   REGISTER_STATUS_FUNC(IOError)
+  REGISTER_STATUS_FUNC(InternalError)
+  REGISTER_STATUS_FUNC(CheckError)
 
  private:
   // NOTE(pangguojian): 当你想要添加一个状态的时候，需要做三件事：
@@ -46,6 +49,8 @@ class Status {
     kInvalidArgument,
     kNotSupported,
     kIOError,
+    kInternalError,
+    kCheckError,
   };
 
   Status(const StatusCode& code, std::string_view msg, std::string_view msg2);
@@ -58,6 +63,8 @@ class Status {
         REGISTER_STATUS_TOSTRING(InvalidArgument, "Invalid argument"),
         REGISTER_STATUS_TOSTRING(NotSupported, "Not implemented"),
         REGISTER_STATUS_TOSTRING(IOError, "IO error"),
+        REGISTER_STATUS_TOSTRING(InternalError, "Internal Error in system"),
+        REGISTER_STATUS_TOSTRING(CheckError, "Check failed"),
     };
     auto iter = k_codes_to_stringmap.find(code);
     std::string result;
@@ -82,5 +89,16 @@ class Status {
       return status;          \
     }                         \
   } while (false)
+
+#define CHECK_TRUE(expression, ...)                                       \
+  do {                                                                    \
+    if (!(expression)) {                                                  \
+      return Status::CheckError(Format("{} at {}: {}: {}()", #expression, \
+                                       __FILE__, __LINE__, __func__),     \
+                                GetDebugStr(##__VA_ARGS__));              \
+    }                                                                     \
+  } while (false)
+
+std::string GetDebugStr(const char* fmt = "");
 
 }  // namespace bitdb

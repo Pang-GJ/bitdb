@@ -7,7 +7,8 @@
 
 namespace bitdb {
 
-Status::Status(const StatusCode& code, std::string_view msg, std::string_view msg2) {
+Status::Status(const StatusCode& code, std::string_view msg,
+               std::string_view msg2) {
   code_ = code;
   state_ = msg;
   if (!msg2.empty()) {
@@ -24,4 +25,7 @@ std::string Status::ToString() const {
   result.append(state_);
   return result;
 }
+
+std::string GetDebugStr(const char* fmt) { return fmt; }
+
 }  // namespace bitdb
