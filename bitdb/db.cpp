@@ -1,10 +1,33 @@
 #include "bitdb/db.h"
+#include <dirent.h>
+#include <sys/types.h>
+#include <cstdint>
+#include <memory>
 #include <mutex>
+#include <string>
+#include <utility>
 #include "bitdb/data/data_file.h"
 #include "bitdb/data/log_record.h"
+#include "bitdb/options.h"
 #include "bitdb/status.h"
+#include "bitdb/utils/os_utils.h"
+#include "bitdb/utils/string_utils.h"
 
 namespace bitdb {
+DB::DB(Options options) : options_(std::move(options)) {}
+
+Status DB::Open(const Options& options, DB** db_ptr) {
+  *db_ptr = nullptr;
+  // 检查配置项
+  CHECK_OK(CheckOptions(options));
+  // 判断数据目录是否存在，不存在则新建
+  CHECK_TRUE(CheckOrCreateDirectory(options.dir_path));
+  *db_ptr = new DB(options);
+  auto& db = **db_ptr;
+  CHECK_OK(db.LoadDataFiles());
+  CHECK_OK(db.LoadIndexFromDataFiles());
+  return Status::Ok();
+}
 
 Status DB::Put(const Bytes& key, const Bytes& value) {
   if (key.empty()) {
@@ -12,9 +35,9 @@ Status DB::Put(const Bytes& key, const Bytes& value) {
   }
 
   data::LogRecord log_record{key, value, data::LogRecordNormal};
-  data::LogRecordPst pst;
-  CHECK_OK(AppendLogRecord(log_record, &pst));
-  auto ok = index_->Put(key, &pst);
+  auto* pst = new data::LogRecordPst;
+  CHECK_OK(AppendLogRecord(log_record, pst));
+  auto ok = index_->Put(key, pst);
   if (!ok) {
     return Status::Corruption("index put", "failed to update index");
   }
@@ -48,8 +71,9 @@ Status DB::Get(const Bytes& key, std::string* value) {
         "DataFile", "data file of key: " + key.ToString() + " Not found");
   }
   data::LogRecord log_record;
-  CHECK_OK(
-      (*data_file_ptr)->ReadLogRecord(log_record_pst->offset, &log_record));
+  size_t sz;
+  CHECK_OK((*data_file_ptr)
+               ->ReadLogRecord(log_record_pst->offset, &log_record, &sz));
   if (log_record.type == data::LogRecordDeleted) {
     return Status::NotFound("index",
                             "index of key " + key.ToString() + " not_found");
@@ -95,16 +119,102 @@ Status DB::AppendLogRecord(const data::LogRecord& log_record,
 }
 
 Status DB::NewActiveDataFile() {
-  uint32_t init_fileid = 0;
+  uint32_t init_file_id = 0;
   if (active_file_ != nullptr) {
-    init_fileid = active_file_->file_id + 1;
+    init_file_id = active_file_->file_id + 1;
   }
 
   // 打开新的数据文件
   std::unique_ptr<data::DataFile> data_file;
-  CHECK_OK(
-      data::DataFile::OpenDataFile(options_.dir_path, init_fileid, &data_file));
+  CHECK_OK(data::DataFile::OpenDataFile(options_.dir_path, init_file_id,
+                                        &data_file));
   active_file_ = std::move(data_file);
+  return Status::Ok();
+}
+
+Status DB::LoadDataFiles() {
+  DIR* dir_ptr;
+  struct dirent* dp;
+  dir_ptr = opendir(options_.dir_path.c_str());
+  if (dir_ptr == nullptr) {
+    return Status::InvalidArgument("DB::LoadDataFiles", "failed to open dir.");
+  }
+  std::vector<uint32_t> filed_ids;
+  while ((dp = readdir(dir_ptr)) != nullptr) {
+    if (EndsWith(dp->d_name, data::K_DATA_FILE_SUFFIX)) {
+      auto split_names = Split(dp->d_name, '.');
+      if (split_names.size() != 2) {
+        return Status::Corruption("DB::LoadDataFiles",
+                                  "database dir maybe corrupted");
+      }
+      const auto file_id = std::stoi(split_names[0].data());
+      filed_ids.emplace_back(file_id);
+    }
+  }
+  // 对文件 id 进行排序，从小到大依次加载
+  std::sort(filed_ids.begin(), filed_ids.end());
+  file_ids_ = std::make_unique<std::vector<uint32_t>>(filed_ids.begin(),
+                                                      filed_ids.end());
+
+  // 遍历每个文件id，打开对应的数据文件
+  const auto sz = file_ids_->size();
+  for (auto i = 0; i < sz; ++i) {
+    const auto& fid = file_ids_->at(i);
+    std::unique_ptr<data::DataFile> data_file;
+    CHECK_OK(data::DataFile::OpenDataFile(options_.dir_path, fid, &data_file));
+    if (i == sz - 1) {
+      active_file_ = std::move(data_file);
+    } else {
+      older_files_[fid] = std::move(data_file);
+    }
+  }
+  return Status::Ok();
+}
+
+Status DB::LoadIndexFromDataFiles() {
+  if (file_ids_->empty()) {
+    return Status::Ok();
+  }
+
+  // 遍历所有的文件id，处理其中的日志记录
+  const auto& sz = file_ids_->size();
+  for (auto i = 0; i < sz; ++i) {
+    const auto& fid = file_ids_->at(i);
+    std::unique_ptr<data::DataFile>* data_file_ptr;
+
+    if (fid == active_file_->file_id) {
+      data_file_ptr = &active_file_;
+    } else {
+      data_file_ptr = &older_files_[fid];
+    }
+
+    int64_t offset = 0;
+    while (true) {
+      data::LogRecord log_record;
+      size_t sz;
+      CHECK_OK((*data_file_ptr)->ReadLogRecord(offset, &log_record, &sz));
+      if (sz == 0) {
+        break;
+      }
+
+      if (log_record.type == data::LogRecordDeleted) {
+        CHECK_TRUE(index_->Delete(log_record.key));
+      } else {
+        auto* log_record_pst =
+            new data::LogRecordPst{.fid = fid, .offset = offset};
+        CHECK_TRUE(index_->Put(log_record.key, log_record_pst));
+      }
+
+      offset += sz;
+    }
+
+    // 如果是 active data file，更新这个文件的 offset
+    if (i == sz - 1) {
+      active_file_->write_off = offset;
+    }
+  }
+  // 清空 file_ids
+  file_ids_->clear();
   return Status::Ok();
 }
 
