@@ -8,6 +8,8 @@
 #include <ctime>
 #include <random>
 
+namespace bitdb {
+
 class Random {
  private:
   uint32_t seed_;
@@ -65,3 +67,5 @@ class Random {
   // range [0,2^max_log-1] with exponential bias towards smaller numbers.
   uint32_t Skewed(int max_log) { return Uniform(1 << Uniform(max_log + 1)); }
 };
+
+}  // namespace bitdb

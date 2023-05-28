@@ -2,6 +2,7 @@
 
 #include <spdlog/spdlog.h>
 
+namespace bitdb {
 #define LOG_INFO(LogMsgFormat, ...)            \
   do {                                         \
     spdlog::info(LogMsgFormat, ##__VA_ARGS__); \
@@ -26,3 +27,5 @@
   do {                                          \
     spdlog::trace(LogMsgFormat, ##__VA_ARGS__); \
   } while (0)
+
+}  // namespace bitdb

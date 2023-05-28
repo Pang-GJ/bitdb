@@ -9,6 +9,7 @@
  *
  */
 
+namespace bitdb {
 /**
  * @brief 判断目录是否存在，不存在则新建
  *
@@ -33,3 +34,5 @@ bool CheckOrCreateDirectory(std::string_view dir_path) {
             strerror(errno));
   return false;
 }
+
+}  // namespace bitdb

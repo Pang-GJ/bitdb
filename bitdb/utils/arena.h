@@ -5,6 +5,8 @@
 
 constexpr int K_BLOCK_SIZE = 4096;
 
+namespace bitdb {
+
 class Arena {
  public:
   Arena();
@@ -33,3 +35,5 @@ class Arena {
 
   size_t memory_usage_;
 };
+
+}  // namespace bitdb

@@ -4,6 +4,7 @@
 #include <cstring>
 #include <string_view>
 
+namespace bitdb {
 struct ReflectionEnumInfo {
   bool scoped;                       // NOLINT
   std::string_view name;             // NOLINT
@@ -56,3 +57,4 @@ constexpr ReflectionEnumInfo ReflectEnum() {
   }
   return {info, equal1, semicolon, equal2, colon, end};
 }
+}  // namespace bitdb

@@ -2,6 +2,8 @@
 #include <cassert>
 #include <cstdint>
 
+namespace bitdb {
+
 Arena::Arena()
     : alloc_ptr_(nullptr), alloc_bytes_remaining_(0), memory_usage_(0) {}
 
@@ -79,3 +81,5 @@ char* Arena::AllocateAligned(size_t bytes) {
   assert((reinterpret_cast<uintptr_t>(result) & (align - 1)) == 0);
   return result;
 }
+
+}  // namespace bitdb

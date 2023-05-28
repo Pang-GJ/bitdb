@@ -6,6 +6,8 @@
 #include <functional>
 #include <string>
 
+namespace bitdb {
+
 // ready-only, to replace std::string
 // learn from
 // https://github.com/ideawu/ssdb/blob/master/src/util/bytes.h#LL13C13-L13C13
@@ -74,10 +76,12 @@ inline bool operator<=(const Bytes& x, const Bytes& y) {
   return x.compare(y) <= 0;
 }
 
+}  // namespace bitdb
+
 namespace std {
 template <>
-struct hash<Bytes> {
-  size_t operator()(const Bytes& b) const {
+struct hash<bitdb::Bytes> {
+  size_t operator()(const bitdb::Bytes& b) const {
     return std::hash<const char*>{}(b.data());
   }
 };
