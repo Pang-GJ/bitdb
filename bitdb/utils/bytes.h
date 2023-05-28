@@ -49,6 +49,12 @@ class Bytes {
     return res;
   }
 
+  void RemovePrefix(size_t n) {
+    assert(n <= size_);
+    data_ += n;
+    size_ -= n;
+  }
+
   std::string ToString() const { return std::string{data_, size_}; }
 
  private:
