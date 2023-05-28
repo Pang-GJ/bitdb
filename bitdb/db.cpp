@@ -82,6 +82,20 @@ Status DB::Get(const Bytes& key, std::string* value) {
   return Status::Ok();
 }
 
+  Status DB::Delete(const Bytes& key) {
+    if (key.empty()) {
+      return Status::InvalidArgument("DB::Delete", "key is empty") ;
+    }
+    auto* pst = index_->Get(key);
+    if (pst == nullptr) {
+      return Status::Ok("DB::Delete", Format("key: {} don't exist.", key.ToString()));
+    }
+    data::LogRecord log_record{.key=key, .type=data::LogRecordDeleted};
+    CHECK_OK(AppendLogRecord(log_record, pst));
+    CHECK_TRUE(index_->Delete(key), Format("index delete key: {} failed.", key.ToString()));
+    return Status::Ok();
+  }
+
 Status DB::AppendLogRecord(const data::LogRecord& log_record,
                            data::LogRecordPst* pst) {
   std::unique_lock lock(rwlock_);

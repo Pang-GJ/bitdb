@@ -24,6 +24,7 @@ class DB {
 
   Status Put(const Bytes& key, const Bytes& value);
   Status Get(const Bytes& key, std::string* value);
+  Status Delete(const Bytes& key);
 
  private:
   Status AppendLogRecord(const data::LogRecord& log_record,

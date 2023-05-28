@@ -26,6 +26,7 @@ std::string Status::ToString() const {
   return result;
 }
 
-std::string GetDebugStr(const char* fmt) { return fmt; }
+// std::string GetDebugStr(const char* fmt) { return fmt; }
+std::string GetDebugStr(std::string_view str) { return str.data(); }
 
 }  // namespace bitdb

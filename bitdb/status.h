@@ -95,10 +95,11 @@ class Status {
     if (!(expression)) {                                                  \
       return Status::CheckError(Format("{} at {}: {}: {}()", #expression, \
                                        __FILE__, __LINE__, __func__),     \
-                                GetDebugStr(##__VA_ARGS__));              \
+                                GetDebugStr(__VA_ARGS__));              \
     }                                                                     \
   } while (false)
 
-std::string GetDebugStr(const char* fmt = "");
+// std::string GetDebugStr(const char* fmt = "");
+std::string GetDebugStr(std::string_view str = std::string_view());
 
 }  // namespace bitdb
