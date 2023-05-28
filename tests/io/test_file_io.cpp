@@ -10,6 +10,7 @@
 #include "bitdb/utils/defer.h"
 
 using bitdb::io::FileIO;
+using bitdb::Bytes;
 
 void DestroyFile(const std::string& name) {
   if (unlink(name.c_str()) != 0) {

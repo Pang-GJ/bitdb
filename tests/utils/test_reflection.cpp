@@ -1,6 +1,9 @@
 #include <iostream>
 #include "bitdb/utils/reflection.h"
 
+using bitdb::ReflectionEnumInfo;
+using bitdb::ReflectEnum;
+
 template <typename T, T V>
 char const* foo() {
   return __PRETTY_FUNCTION__;

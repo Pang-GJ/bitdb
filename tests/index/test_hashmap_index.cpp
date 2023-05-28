@@ -7,6 +7,7 @@
 
 using bitdb::data::LogRecordPst;
 using bitdb::index::HashIndexer;
+using bitdb::Bytes;
 
 TEST_CASE("test index put") {
   auto indexer = std::make_unique<HashIndexer>();

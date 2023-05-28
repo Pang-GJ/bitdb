@@ -2,6 +2,8 @@
 #include <doctest/doctest.h>
 #include "bitdb/utils/arena.h"
 #include "bitdb/utils/random.h"
+using bitdb::Arena;
+using bitdb::Random;
 
 TEST_CASE("ArenaTest, Empty") { Arena arena; }
 
