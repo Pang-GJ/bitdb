@@ -2,11 +2,14 @@
 
 #include <sys/types.h>
 #include <cstdint>
+#include <memory>
+#include <string_view>
 #include "bitdb/utils/bytes.h"
 
 namespace bitdb::io {
 
-#define DataFilePerm (S_IRWXU | S_IROTH);  // 0644 表示创建一个文件，文件所有者可读写，其他人只能读
+#define DataFilePerm \
+  (S_IRWXU | S_IROTH);  // 0644 表示创建一个文件，文件所有者可读写，其他人只能读
 
 class IOInterface {
  public:
@@ -20,5 +23,7 @@ class IOInterface {
 
   virtual size_t Size() = 0;
 };
+
+std::unique_ptr<IOInterface> NewIOInterface(const std::string& file_name);
 
 }  // namespace bitdb::io

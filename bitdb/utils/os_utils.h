@@ -35,4 +35,18 @@ bool CheckOrCreateDirectory(std::string_view dir_path) {
   return false;
 }
 
+std::string GetTempDir() {
+  auto* tempdir = std::getenv("TMPDIR");  // 获取临时目录环境变量
+  if (tempdir == nullptr) {               // 如果环境变量不存在
+    tempdir = std::getenv("TEMP");
+    if (tempdir == nullptr) {  // 如果环境变量仍不存在
+      tempdir = std::getenv("TMP");
+      if (tempdir == nullptr) {  // 如果环境变量仍不存在
+        return {"/tmp/"};        // 使用默认的临时目录
+      }
+    }
+  }
+  return {tempdir};
+}
+
 }  // namespace bitdb

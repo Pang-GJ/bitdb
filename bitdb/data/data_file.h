@@ -12,11 +12,11 @@ namespace bitdb::data {
 constexpr std::string_view K_DATA_FILE_SUFFIX = ".data";
 
 struct DataFile {
-  uint32_t file_id;             // NOLINT
-  int64_t write_off;            // NOLINT
-  io::IOInterface* io_manager;  // NOLINT
+  uint32_t file_id;                             // NOLINT
+  int64_t write_off;                            // NOLINT
+  std::unique_ptr<io::IOInterface> io_manager;  // NOLINT
 
-  DataFile(std::string_view dir_path, uint32_t file_id);
+  DataFile(uint32_t file_id, std::unique_ptr<io::IOInterface> io_manager);
 
   static Status OpenDataFile(std::string_view path, uint32_t file_id,
                              std::unique_ptr<DataFile>* data_file_ptr);
@@ -32,6 +32,9 @@ struct DataFile {
   Status ReadLogRecord(int64_t offset, LogRecord* log_record, size_t* size);
   Status Write(const Bytes& buf);
   Status Sync();
+
+ private:
+  Bytes ReadNBytes(int64_t n, int64_t offset);
 };
 
 }  // namespace bitdb::data

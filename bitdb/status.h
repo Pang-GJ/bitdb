@@ -95,8 +95,27 @@ class Status {
     if (!(expression)) {                                                  \
       return Status::CheckError(Format("{} at {}: {}: {}()", #expression, \
                                        __FILE__, __LINE__, __func__),     \
-                                GetDebugStr(__VA_ARGS__));              \
+                                GetDebugStr(__VA_ARGS__));                \
     }                                                                     \
+  } while (false)
+
+#define CHECK_NOT_NULL_STATUS(pointer)                                      \
+  do {                                                                      \
+    if ((pointer) == nullptr) {                                             \
+      LOG_ERROR("{} is nullptr, at {}: {}: {}()", #pointer, __FILE__,       \
+                __LINE__, __func__);                                        \
+      return Status::InternalError(Format("{} is nullptr, at {}: {}: {}()", \
+                                          #pointer, __FILE__, __LINE__,     \
+                                          __func__));                       \
+    }                                                                       \
+  } while (false)
+
+#define CHECK_NOT_NULL(pointer)                                       \
+  do {                                                                \
+    if ((pointer) == nullptr) {                                       \
+      LOG_ERROR("{} is nullptr, at {}: {}: {}()", #pointer, __FILE__, \
+                __LINE__, __func__);                                  \
+    }                                                                 \
   } while (false)
 
 // std::string GetDebugStr(const char* fmt = "");
