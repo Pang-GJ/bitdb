@@ -34,7 +34,7 @@ struct DataFile {
   Status Sync();
 
  private:
-  Bytes ReadNBytes(int64_t n, int64_t offset);
+  std::string ReadNBytes(int64_t n, int64_t offset);
 };
 
 }  // namespace bitdb::data

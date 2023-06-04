@@ -1,10 +1,11 @@
 add_requires("spdlog", {system=false, configs = {header_only = true, fmt_external=true}})
 add_requires("nlohmann_json", {system=false})
 add_requires("fmt", {system=false})
+add_requires("crc32c", {system=false})
 
 target("bitdb")
   set_kind("shared")
   add_files("$(projectdir)/bitdb/**.cpp")
   add_includedirs("$(projectdir)/", { public = true})
-  add_packages("fmt", "spdlog")
+  add_packages("fmt", "spdlog", "crc32c")
 target_end()

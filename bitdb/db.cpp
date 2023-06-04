@@ -34,7 +34,7 @@ Status DB::Put(const Bytes& key, const Bytes& value) {
     return Status::InvalidArgument("DB::Put", "key is empty");
   }
 
-  data::LogRecord log_record{key, value, data::LogRecordNormal};
+  data::LogRecord log_record{key.data(), value.data(), data::LogRecordNormal};
   auto* pst = new data::LogRecordPst;
   CHECK_OK(AppendLogRecord(log_record, pst));
   auto ok = index_->Put(key, pst);
@@ -78,23 +78,25 @@ Status DB::Get(const Bytes& key, std::string* value) {
     return Status::NotFound("index",
                             "index of key " + key.ToString() + " not_found");
   }
-  *value = log_record.value.data();
+  *value = log_record.value;
   return Status::Ok();
 }
 
-  Status DB::Delete(const Bytes& key) {
-    if (key.empty()) {
-      return Status::InvalidArgument("DB::Delete", "key is empty") ;
-    }
-    auto* pst = index_->Get(key);
-    if (pst == nullptr) {
-      return Status::Ok("DB::Delete", Format("key: {} don't exist.", key.ToString()));
-    }
-    data::LogRecord log_record{.key=key, .type=data::LogRecordDeleted};
-    CHECK_OK(AppendLogRecord(log_record, pst));
-    CHECK_TRUE(index_->Delete(key), Format("index delete key: {} failed.", key.ToString()));
-    return Status::Ok();
+Status DB::Delete(const Bytes& key) {
+  if (key.empty()) {
+    return Status::InvalidArgument("DB::Delete", "key is empty");
   }
+  auto* pst = index_->Get(key);
+  if (pst == nullptr) {
+    return Status::Ok("DB::Delete",
+                      Format("key: {} don't exist.", key.ToString()));
+  }
+  data::LogRecord log_record{.key = key.data(), .type = data::LogRecordDeleted};
+  CHECK_OK(AppendLogRecord(log_record, pst));
+  CHECK_TRUE(index_->Delete(key),
+             Format("index delete key: {} failed.", key.ToString()));
+  return Status::Ok();
+}
 
 Status DB::AppendLogRecord(const data::LogRecord& log_record,
                            data::LogRecordPst* pst) {

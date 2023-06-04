@@ -25,6 +25,41 @@ class Bytes {
 
   Bytes(const char* str) : data_(str), size_(std::strlen(str)) {}  // NOLINT
 
+  ~Bytes() {
+    if (deep_copy_) {
+      delete data_;
+    }
+  }
+
+  Bytes(const Bytes& other) {
+    deep_copy_ = other.deep_copy_;
+    size_ = other.size_;
+    if (deep_copy_) {
+      data_ = new char[size_];
+      std::memcpy(const_cast<char*>(data_), other.data_, size_);
+    } else {
+      data_ = other.data_;
+    }
+  }
+
+  Bytes& operator=(const Bytes& other) {
+    if (this != &other) {
+      deep_copy_ = other.deep_copy_;
+      size_ = other.size_;
+      if (deep_copy_) {
+        data_ = new char[size_];
+        std::memcpy(const_cast<char*>(data_), other.data_, size_);
+      } else {
+        data_ = other.data_;
+      }
+    }
+    return *this;
+  }
+
+  static Bytes DeepCopy(const char* data, size_t size) {
+    return Bytes(data, size, true);
+  }
+
   char operator[](size_t n) const {
     assert(n < size());
     return data_[n];
@@ -58,8 +93,21 @@ class Bytes {
   std::string ToString() const { return std::string{data_, size_}; }
 
  private:
+  Bytes(const char* data, size_t size, bool deep_copy) {
+    size_ = size;
+    deep_copy_ = deep_copy;
+    if (deep_copy) {
+      // TOOD(pangguojian): still has bugs. how to deep copy for "const char*"
+      data_ = new char[size];
+      std::memcpy(const_cast<char*>(data_), data, size);
+    } else {
+      data_ = data;
+    }
+  }
+
   const char* data_;
   size_t size_;
+  bool deep_copy_{false};  // 是否是深拷贝
 };
 
 inline bool operator==(const Bytes& x, const Bytes& y) {

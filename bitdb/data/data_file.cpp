@@ -1,5 +1,7 @@
 #include "bitdb/data/data_file.h"
+#include <cassert>
 #include <cstddef>
+#include <cstdint>
 #include <memory>
 #include <string_view>
 #include "bitdb/data/log_record.h"
@@ -32,13 +34,16 @@ Status DataFile::ReadLogRecord(int64_t offset, LogRecord* log_record,
   if (file_size == 0) {
     return Status::IOError("Data::ReadLogRecord", "file size equals zero.");
   }
-  size_t read_header_size = K_MAX_LOG_RECORD_HEADER_ITEM_SIZE;
-  if (offset + read_header_size > file_size) {
-    read_header_size = file_size - offset;
+  size_t try_read_header_size = K_MAX_LOG_RECORD_HEADER_SIZE;
+  if (offset + try_read_header_size > file_size) {
+    // 这里让 read_header_size 缩小继续读的原因是
+    // header 是变长的，如果 offset 后面还有内容，那么 header 肯定可以读完整
+    // 因为写入的时候就保证了，不完整肯定不会写
+    try_read_header_size = file_size - offset;
   }
 
   // 读取 header 信息
-  auto header_buf = ReadNBytes(read_header_size, offset);
+  auto header_buf = ReadNBytes(try_read_header_size, offset);
   if (header_buf.empty()) {
     return Status::IOError("Data::ReadLogRecord", "header equals zero.");
   }
@@ -49,28 +54,31 @@ Status DataFile::ReadLogRecord(int64_t offset, LogRecord* log_record,
   if (header->crc == 0 && header->key_size == 0 && header->value_size == 0) {
     return Status::IOError("Data::ReadLogRecord", "io EOF");
   }
-  auto key_size = static_cast<int64_t>(header->key_size);
-  auto value_size = static_cast<int64_t>(header->value_size);
+  auto key_size = header->key_size;
+  auto value_size = header->value_size;
   auto record_size = header_size + key_size + value_size;
+  LOG_INFO("key_size: {}, value_size: {}.", key_size, value_size);
 
   log_record->type = header->record_type;
 
   if (key_size > 0 && value_size > 0) {
-    auto kv_buf = ReadNBytes(key_size + value_size, header_size + offset);
+    assert(key_size + value_size < file_size);
+    auto kv_buf = ReadNBytes(key_size + value_size, offset + header_size);
     if (kv_buf.empty()) {
-      return Status::IOError("Data::ReadLogRecord",
-                             "kv pair size equals zero.");
+      return Status::IOError("Data::ReadLogRecord", "kv pair size equals zero");
     }
 
-    const auto* kv_data = kv_buf.data();
-    log_record->key = Bytes(kv_data, key_size);
-    log_record->value = Bytes(kv_data + key_size, value_size);
+    log_record->key = std::string(kv_buf.begin(), kv_buf.begin() + key_size);
+    log_record->value = std::string(kv_buf.begin() + key_size,
+                                    kv_buf.begin() + key_size + value_size);
   }
 
+  LOG_INFO("log_record, key: {}, value: {}.", log_record->key,
+           log_record->value);
   // 校验CRC
   auto crc = GetLogRecordCRC(
       *log_record,
-      Bytes(header_buf.data() + K_CRC32_SIZE, header_size - K_CRC32_SIZE));
+      std::string(header_buf.begin(), header_buf.begin() + header_size));
   if (crc != header->crc) {
     return Status::Corruption("DataFile::ReadLogRecord",
                               "invalid crc value, log record maybe corrupted.");
@@ -98,13 +106,13 @@ Status DataFile::Sync() {
   return Status::Ok();
 }
 
-Bytes DataFile::ReadNBytes(int64_t n, int64_t offset) {
+std::string DataFile::ReadNBytes(int64_t n, int64_t offset) {
   char buffer[n];
   auto res = io_manager->Read(buffer, n, offset);
   if (res < 0) {
-    return Bytes{};
+    LOG_WARN("io_manager Read res less than 0.");
+    return {};
   }
-  // 这里可能会有内存安全问题？因为 buffer 的生命周期结束了
-  return Bytes{buffer};
+  return {buffer};
 }
 }  // namespace bitdb::data
