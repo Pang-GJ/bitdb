@@ -17,6 +17,8 @@ enum LogRecordType : int8_t {
   LogRecordDeleted,
 };
 
+constexpr size_t K_LOG_RECORD_TYPE_SIZE = 1;
+
 // crc type KeySize ValueSize
 // 4 + 1 +  5 +     5 (byte)
 // +-------------+------------+------------+--------------+-------+---------+
@@ -32,6 +34,7 @@ struct LogRecordHeader {
   uint32_t key_size;          // NOLINT
   uint32_t value_size;        // NOLINT
 
+  LogRecordHeader() = default;
   LogRecordHeader(uint32_t crc, LogRecordType record_type)
       : crc(crc), record_type(record_type) {}
 };
@@ -67,10 +70,7 @@ struct LogRecord {
  * @param log_record
  * @return std::string
  */
-std::string EncodeLogRecord(const LogRecord& log_record,
-                            uint32_t* crc32_ptr = nullptr,
-                            char** header_buf = nullptr,
-                            size_t* header_buf_sz = nullptr);
+std::string EncodeLogRecord(const LogRecord& log_record);
 
 /**
  * @brief 对字节数组中的 Header 信息进行解码
@@ -78,7 +78,7 @@ std::string EncodeLogRecord(const LogRecord& log_record,
  * @param bytes
  * @return LogRecordHeader
  */
-std::pair<std::unique_ptr<LogRecordHeader>, uint32_t> DecodeLogRecordHeader(
+std::pair<LogRecordHeader, uint32_t> DecodeLogRecordHeader(
     const Bytes& bytes);
 
 /**
@@ -90,5 +90,5 @@ std::pair<std::unique_ptr<LogRecordHeader>, uint32_t> DecodeLogRecordHeader(
  */
 uint32_t GetLogRecordCRC(const LogRecord& log_record, const std::string& header);
 
-constexpr size_t K_CRC32_SIZE = 4;
+constexpr size_t K_CRC_SIZE = 4;
 }  // namespace bitdb::data

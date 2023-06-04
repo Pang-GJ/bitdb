@@ -48,18 +48,17 @@ Status DataFile::ReadLogRecord(int64_t offset, LogRecord* log_record,
     return Status::IOError("Data::ReadLogRecord", "header equals zero.");
   }
   auto&& [header, header_size] = DecodeLogRecordHeader(header_buf);
-  if (header == nullptr) {
+  if (header_size == 0) {
     return Status::IOError("Data::ReadLogRecord", "io EOF");
   }
-  if (header->crc == 0 && header->key_size == 0 && header->value_size == 0) {
+  if (header.crc == 0 && header.key_size == 0 && header.value_size == 0) {
     return Status::IOError("Data::ReadLogRecord", "io EOF");
   }
-  auto key_size = header->key_size;
-  auto value_size = header->value_size;
+  auto key_size = header.key_size;
+  auto value_size = header.value_size;
   auto record_size = header_size + key_size + value_size;
-  LOG_INFO("key_size: {}, value_size: {}.", key_size, value_size);
 
-  log_record->type = header->record_type;
+  log_record->type = header.record_type;
 
   if (key_size > 0 && value_size > 0) {
     assert(key_size + value_size < file_size);
@@ -73,13 +72,11 @@ Status DataFile::ReadLogRecord(int64_t offset, LogRecord* log_record,
                                     kv_buf.begin() + key_size + value_size);
   }
 
-  LOG_INFO("log_record, key: {}, value: {}.", log_record->key,
-           log_record->value);
   // 校验CRC
   auto crc = GetLogRecordCRC(
       *log_record,
       std::string(header_buf.begin(), header_buf.begin() + header_size));
-  if (crc != header->crc) {
+  if (crc != header.crc) {
     return Status::Corruption("DataFile::ReadLogRecord",
                               "invalid crc value, log record maybe corrupted.");
   }
