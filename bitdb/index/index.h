@@ -10,7 +10,15 @@ class Indexer {
  public:
   virtual bool Put(const Bytes& key, data::LogRecordPst* pos) = 0;
   virtual data::LogRecordPst* Get(const Bytes& key) = 0;
-  virtual bool Delete(const Bytes& key) = 0;
+  /**
+   * @brief 删除 key value，并返回被删除的value
+   * 
+   * @param key 
+   * @param pos 
+   * @return true 
+   * @return false 
+   */
+  virtual bool Delete(const Bytes& key, data::LogRecordPst** pos) = 0;
 };
 
 // 内存索引类型

@@ -11,7 +11,7 @@ class HashIndexer : public Indexer {
  public:
   bool Put(const Bytes& key, data::LogRecordPst* pos) override;
   data::LogRecordPst* Get(const Bytes& key) override;
-  bool Delete(const Bytes& key) override;
+  bool Delete(const Bytes& key, data::LogRecordPst** pos) override;
 
  private:
   std::shared_mutex rwlock_;

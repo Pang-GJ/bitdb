@@ -1,6 +1,7 @@
 #include "bitdb/index/skiplist_index.h"
 #include <mutex>
 #include <shared_mutex>
+#include "bitdb/data/log_record.h"
 
 namespace bitdb::index {
 
@@ -17,9 +18,10 @@ data::LogRecordPst* SkipListIndexer::Get(const Bytes& key) {
   }
   return *res;
 }
-bool SkipListIndexer::Delete(const Bytes& key) {
+bool SkipListIndexer::Delete(const Bytes& key, data::LogRecordPst** pos) {
   std::unique_lock<std::shared_mutex> lock(rwlock_);
-  return ds_.Remove(key);
+  auto res = ds_.Remove(key, pos);
+  return res;
 }
 
 }  // namespace bitdb::index

@@ -48,13 +48,13 @@ TEST_CASE("test index delete") {
   auto res0 = indexer->Put(Bytes{""}, &pst0);
   CHECK_EQ(true, res0);
 
-  auto res1 = indexer->Delete(Bytes{""});
+  auto res1 = indexer->Delete(Bytes{""}, nullptr);
   CHECK_EQ(true, res1);
 
   LogRecordPst pst1{.fid = 1, .offset = 200};
   auto res2 = indexer->Put(Bytes{"abc"}, &pst1);
   CHECK_EQ(true, res2);
-  res1 = indexer->Delete(Bytes{"abc"});
+  res1 = indexer->Delete(Bytes{"abc"}, nullptr);
   CHECK_EQ(true, res1);
   auto res3 = indexer->Get(Bytes{"abc"});
   CHECK_EQ(nullptr, res3);

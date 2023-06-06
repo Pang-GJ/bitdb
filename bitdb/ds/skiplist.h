@@ -66,13 +66,16 @@ class SkipList {
     ++this->size_;
   }
 
-  bool Remove(const K& key) {
+  bool Remove(const K& key, V* value) {
     auto&& [node, prevs] = FindRemovePoint(key);
     if (node == nullptr) {
       return false;
     }
     for (auto i = 0; i < node->level; ++i) {
       prevs[i]->next[i] = node->next[i];
+    }
+    if (value != nullptr) {
+      *value = node->value;
     }
     DeleteNode(node);
     // 去除无用的索引

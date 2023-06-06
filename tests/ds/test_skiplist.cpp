@@ -34,7 +34,7 @@ TEST_CASE("TestSkipList_Remove") {
 
   MakeSkipListN(10000);
   for (int i = 0; i < 10000; i++) {
-    CHECK_EQ(true, sl.Remove(i));
+    CHECK_EQ(true, sl.Remove(i, nullptr));
   }
   CHECK_EQ(true, sl.IsEmpty());
   CHECK_EQ(sl.Size(), 0U);
@@ -44,7 +44,7 @@ TEST_CASE("TestSkipList_Remove_Nonexist") {
   SkipList<int, int> sl;
   sl.Insert(1, 1);
   sl.Insert(2, 2);
-  CHECK_FALSE(sl.Remove(0));
-  CHECK_FALSE(sl.Remove(3));
+  CHECK_FALSE(sl.Remove(0, nullptr));
+  CHECK_FALSE(sl.Remove(3, nullptr));
   CHECK_EQ(sl.Size(), 2U);
 }
