@@ -1,5 +1,7 @@
+#include "bitdb/utils/bytes.h"
 #define DOCTEST_CONFIG_IMPLEMENT_WITH_MAIN
 #include <doctest/doctest.h>
+#include <string>
 #include "bitdb/ds/skiplist.h"
 
 using bitdb::ds::SkipList;
@@ -16,12 +18,15 @@ TEST_CASE("TestSkipList_Insert") {
 }
 
 TEST_CASE("TestSkipList_Insert_Dup") {
-  SkipList<int, int> sl;
-  sl.Insert(1, 1);
-  CHECK_EQ(sl.Size(), 1U);
-  sl.Insert(1, 2);
-  CHECK_EQ(sl.Size(), 1U);
-  CHECK_EQ(*sl.Find(1), 2);
+  SkipList<std::string, int> sl;
+  size_t sz = 0;
+  for (auto i = 0; i < 10; i += 2) {
+    sl.Insert(std::to_string(i), i);
+    CHECK_EQ(sl.Size(), ++sz);
+    sl.Insert(std::to_string(i), i + 1);
+    CHECK_EQ(sl.Size(), sz);
+    CHECK_EQ(*sl.Find(std::to_string(i)), i + 1);
+  }
 }
 
 TEST_CASE("TestSkipList_Remove") {
@@ -32,8 +37,8 @@ TEST_CASE("TestSkipList_Remove") {
     }
   };
 
-  MakeSkipListN(10000);
-  for (int i = 0; i < 10000; i++) {
+  MakeSkipListN(100000);
+  for (int i = 0; i < 100000; i++) {
     CHECK_EQ(true, sl.Remove(i, nullptr));
   }
   CHECK_EQ(true, sl.IsEmpty());

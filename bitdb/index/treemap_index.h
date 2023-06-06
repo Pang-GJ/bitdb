@@ -15,7 +15,7 @@ class TreeIndexer : public Indexer {
  
  private:
   std::shared_mutex rwlock_;  
-  ds::TreeMap<Bytes, data::LogRecordPst*> ds_;
+  ds::TreeMap<std::string, data::LogRecordPst*> ds_;
 };
 
 }  // namespace bitdb::index

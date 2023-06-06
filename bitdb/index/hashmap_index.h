@@ -15,7 +15,7 @@ class HashIndexer : public Indexer {
 
  private:
   std::shared_mutex rwlock_;
-  ds::HashMap<Bytes, data::LogRecordPst*> ds_;
+  ds::HashMap<std::string, data::LogRecordPst*> ds_;
 };
 
 }  // namespace bitdb::index

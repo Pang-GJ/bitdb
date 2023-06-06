@@ -12,7 +12,7 @@ class SkipListIndexer : public Indexer {
 
  private:
   std::shared_mutex rwlock_;  
-  ds::SkipList<Bytes, data::LogRecordPst*> ds_;
+  ds::SkipList<std::string, data::LogRecordPst*> ds_;
 };
 
 }  // namespace bitdb::index
