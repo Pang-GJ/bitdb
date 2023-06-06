@@ -8,13 +8,16 @@
 #include <utility>
 #include "bitdb/data/data_file.h"
 #include "bitdb/data/log_record.h"
+#include "bitdb/index/index.h"
 #include "bitdb/options.h"
 #include "bitdb/status.h"
 #include "bitdb/utils/os_utils.h"
 #include "bitdb/utils/string_utils.h"
 
 namespace bitdb {
-DB::DB(Options options) : options_(std::move(options)) {}
+DB::DB(Options options)
+    : options_(std::move(options)),
+      index_(index::NewIndexer(options_.index_type)) {}
 
 Status DB::Open(const Options& options, DB** db_ptr) {
   *db_ptr = nullptr;

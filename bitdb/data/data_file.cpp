@@ -34,6 +34,9 @@ Status DataFile::ReadLogRecord(int64_t offset, LogRecord* log_record,
   if (file_size == 0) {
     return Status::IOError("Data::ReadLogRecord", "file size equals zero.");
   }
+  if (file_size == offset) {
+    return Status::Ok("IO EOF");
+  }
   size_t try_read_header_size = K_MAX_LOG_RECORD_HEADER_SIZE;
   if (offset + try_read_header_size > file_size) {
     // 这里让 read_header_size 缩小继续读的原因是
@@ -60,7 +63,7 @@ Status DataFile::ReadLogRecord(int64_t offset, LogRecord* log_record,
 
   log_record->type = header.record_type;
 
-  if (key_size > 0 && value_size > 0) {
+  if (key_size > 0 || value_size > 0) {
     assert(key_size + value_size < file_size);
     auto kv_buf = ReadNBytes(key_size + value_size, offset + header_size);
     if (kv_buf.empty()) {
@@ -104,12 +107,13 @@ Status DataFile::Sync() {
 }
 
 std::string DataFile::ReadNBytes(int64_t n, int64_t offset) {
-  char buffer[n];
+  char buffer[n + 1];
+  buffer[n] = '\n';
   auto res = io_manager->Read(buffer, n, offset);
   if (res < 0) {
     LOG_WARN("io_manager Read res less than 0.");
     return {};
   }
-  return {buffer};
+  return {buffer, buffer + res};
 }
 }  // namespace bitdb::data

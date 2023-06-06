@@ -1,5 +1,4 @@
 add_requires("spdlog", {system=false, configs = {header_only = true, fmt_external=true}})
-add_requires("nlohmann_json", {system=false})
 add_requires("fmt", {system=false})
 add_requires("crc32c", {system=false})
 

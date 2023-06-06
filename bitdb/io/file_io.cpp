@@ -6,7 +6,7 @@
 namespace bitdb::io {
 
 int FileIO::Read(char* buf, size_t count, off_t offset) {
-  return ::pread(fd_, buf, count, offset);
+  return ::pread64(fd_, buf, count, offset);
 }
 
 int FileIO::Write(const Bytes& bytes) {

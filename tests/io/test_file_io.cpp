@@ -9,8 +9,8 @@
 #include "bitdb/io/file_io.h"
 #include "bitdb/utils/defer.h"
 
-using bitdb::io::FileIO;
 using bitdb::Bytes;
+using bitdb::io::FileIO;
 
 void DestroyFile(const std::string& name) {
   if (unlink(name.c_str()) != 0) {
@@ -68,8 +68,67 @@ TEST_CASE("test file io read") {
   CHECK_EQ(r2, 5);
 }
 
-TEST_CASE("test file io sync") {
+TEST_CASE("test file io multi read after multi write") {
   std::string filepath = "/tmp/a.data";
+  auto fileio = std::make_unique<bitdb::io::FileIO>(filepath);
+  defer { DestroyFile(filepath); };
+  CHECK_NE(fileio, nullptr);
+
+  size_t offset = 0;
+  for (int i = 1; i <= 10000; ++i) {
+    char ch = 'a' + (i % 25);
+    std::string str(i, ch);
+    auto n = fileio->Write(str);
+    CHECK_EQ(i, n);
+  }
+
+  for (int i = 1; i <= 10000; ++i) {
+    char ch = 'a' + (i % 25);
+    std::string str(i, ch);
+
+    auto val_buf = new char[i + 1]{'\0'};
+    auto read_bytes = fileio->Read(val_buf, i, offset);
+    std::string val(val_buf);
+    CHECK_EQ(val, str);
+    if (str != val) {
+      LOG_ERROR("str's size: {}, val's size: {}", str.size(), val.size());
+    }
+    CHECK_EQ(i, read_bytes);
+
+    offset += i;
+    delete[] val_buf;
+  }
+}
+
+TEST_CASE("test file io multi read between multi write") {
+  std::string filepath = "/tmp/a.data";
+  auto fileio = std::make_unique<bitdb::io::FileIO>(filepath);
+  defer { DestroyFile(filepath); };
+  CHECK_NE(fileio, nullptr);
+
+  size_t offset = 0;
+  for (int i = 1; i <= 10000; ++i) {
+    char ch = 'a' + (i % 25);
+    std::string str(i, ch);
+    auto n = fileio->Write(str);
+    CHECK_EQ(i, n);
+
+    auto val_buf = new char[i + 1]{'\0'};
+    auto read_bytes = fileio->Read(val_buf, i, offset);
+    std::string val(val_buf);
+    CHECK_EQ(val, str);
+    if (str != val) {
+      LOG_ERROR("str's size: {}, val's size: {}", str.size(), val.size());
+    }
+    CHECK_EQ(i, read_bytes);
+
+    offset += i;
+    delete[] val_buf;
+  }
+}
+
+TEST_CASE("test file io sync") {
+  std::string filepath = "/tmp/b.data";
   auto fileio = std::make_unique<bitdb::io::FileIO>(filepath);
   defer { DestroyFile(filepath); };
   CHECK_NE(fileio, nullptr);

@@ -9,7 +9,7 @@ target("test_status")
   add_packages("doctest", "fmt", "spdlog")
   add_deps("bitdb")
 
-target("test_fileio")
+target("test_file_io")
   set_kind("binary")
   set_group("io")
   add_files("$(projectdir)/tests/io/test_file_io.cpp")

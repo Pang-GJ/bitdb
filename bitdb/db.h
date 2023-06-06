@@ -38,7 +38,7 @@ class DB {
   Options options_;
   std::unique_ptr<data::DataFile> active_file_;
   ds::HashMap<uint32_t, std::unique_ptr<data::DataFile>> older_files_;
-  index::Indexer* index_;
+  std::unique_ptr<index::Indexer> index_;
   std::unique_ptr<std::vector<uint32_t>> file_ids_; // 仅在加载文件时使用
 };
 
