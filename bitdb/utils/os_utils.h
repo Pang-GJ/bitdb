@@ -1,9 +1,11 @@
 #pragma once
+#include <dirent.h>
 #include <sys/stat.h>
 #include <cerrno>
 #include <cstring>
 #include <string_view>
 #include "bitdb/utils/logger.h"
+#include "bitdb/utils/string_utils.h"
 /**
  * @brief 系统调用封装
  *
@@ -47,6 +49,43 @@ std::string GetTempDir() {
     }
   }
   return {tempdir};
+}
+
+void RemoveFile(const std::string& file_name) {
+  if (unlink(file_name.c_str()) != 0) {
+    LOG_ERROR("Failed to remove file: {}", file_name);
+    exit(-1);
+  }
+}
+
+void RemoveDir(const std::string& dir_name) {
+  DIR* dp = opendir(dir_name.c_str());
+  if (dp == nullptr) {
+    LOG_ERROR("Failed to open directory: {}", dir_name);
+    exit(-1);
+  }
+  struct dirent* dirp;
+  while ((dirp = readdir(dp)) != nullptr) {
+    std::string file_name = dirp->d_name;
+    if (file_name == "." || file_name == "..") {
+      continue;
+    }
+    std::string full_file_name = Format("{}/{}", dir_name, file_name);
+    struct stat stat_buf;
+    if (stat(full_file_name.c_str(), &stat_buf) != 0) {
+      continue;
+    }
+    if (S_ISDIR(stat_buf.st_mode)) {
+      RemoveDir(full_file_name);
+    } else {
+      RemoveFile(full_file_name);
+    }
+  }
+  closedir(dp);
+  if (rmdir(dir_name.c_str()) != 0) {
+    LOG_ERROR("Failed to remove directory: {}", dir_name);
+    exit(-1);
+  }
 }
 
 }  // namespace bitdb

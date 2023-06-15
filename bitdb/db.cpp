@@ -32,6 +32,15 @@ Status DB::Open(const Options& options, DB** db_ptr) {
   return Status::Ok();
 }
 
+Status DB::Close(DB** db_ptr) {
+  if (db_ptr == nullptr || (*db_ptr) == nullptr) {
+    return Status::InvalidArgument("DB::Close", "db is null");
+  }
+  delete (*db_ptr);
+  *db_ptr = nullptr;
+  return Status::Ok();
+}
+
 Status DB::Put(const Bytes& key, const Bytes& value) {
   if (key.empty()) {
     return Status::InvalidArgument("DB::Put", "key is empty");
@@ -96,8 +105,9 @@ Status DB::Delete(const Bytes& key) {
   }
   data::LogRecord log_record{.key = key.data(), .type = data::LogRecordDeleted};
   CHECK_OK(AppendLogRecord(log_record, pst));
-  CHECK_TRUE(index_->Delete(key),
+  CHECK_TRUE(index_->Delete(key, &pst),
              Format("index delete key: {} failed.", key.ToString()));
+  delete pst;
   return Status::Ok();
 }
 
@@ -138,15 +148,12 @@ Status DB::AppendLogRecord(const data::LogRecord& log_record,
 }
 
 Status DB::NewActiveDataFile() {
-  uint32_t init_file_id = 0;
-  if (active_file_ != nullptr) {
-    init_file_id = active_file_->file_id + 1;
-  }
-
   // 打开新的数据文件
   std::unique_ptr<data::DataFile> data_file;
-  CHECK_OK(data::DataFile::OpenDataFile(options_.dir_path, init_file_id,
+  CHECK_OK(data::DataFile::OpenDataFile(options_.dir_path, next_file_id_,
                                         &data_file));
+  CHECK_NOT_NULL_STATUS(data_file.get());
+  ++next_file_id_;
   active_file_ = std::move(data_file);
   return Status::Ok();
 }
@@ -217,7 +224,9 @@ Status DB::LoadIndexFromDataFiles() {
       }
 
       if (log_record.type == data::LogRecordDeleted) {
-        CHECK_TRUE(index_->Delete(log_record.key));
+        data::LogRecordPst* pst = nullptr;
+        CHECK_TRUE(index_->Delete(log_record.key, &pst));
+        delete pst;
       } else {
         auto* log_record_pst =
             new data::LogRecordPst{.fid = fid, .offset = offset};

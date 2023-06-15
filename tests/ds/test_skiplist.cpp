@@ -8,7 +8,7 @@ using bitdb::ds::SkipList;
 
 TEST_CASE("TestSkipList_Insert") {
   SkipList<int, int> sl;
-  for (size_t i = 0; i < 100000; ++i) {
+  for (size_t i = 0; i < 10000000; ++i) {
     CHECK_EQ(sl.Size(), i);
     CHECK_FALSE(sl.Has(i));
     sl.Insert(i, i);
@@ -20,7 +20,7 @@ TEST_CASE("TestSkipList_Insert") {
 TEST_CASE("TestSkipList_Insert_Dup") {
   SkipList<std::string, int> sl;
   size_t sz = 0;
-  for (auto i = 0; i < 10; i += 2) {
+  for (auto i = 0; i < 10000000; i += 2) {
     sl.Insert(std::to_string(i), i);
     CHECK_EQ(sl.Size(), ++sz);
     sl.Insert(std::to_string(i), i + 1);
@@ -29,6 +29,7 @@ TEST_CASE("TestSkipList_Insert_Dup") {
   }
 }
 
+// TODO(pangguojian): 100w 数据偶现 coredump
 TEST_CASE("TestSkipList_Remove") {
   SkipList<int, int> sl;
   auto MakeSkipListN = [&](int n) {  // NOLINT
@@ -37,8 +38,8 @@ TEST_CASE("TestSkipList_Remove") {
     }
   };
 
-  MakeSkipListN(100000);
-  for (int i = 0; i < 100000; i++) {
+  MakeSkipListN(10000000);
+  for (int i = 0; i < 10000000; i++) {
     CHECK_EQ(true, sl.Remove(i, nullptr));
   }
   CHECK_EQ(true, sl.IsEmpty());

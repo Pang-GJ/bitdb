@@ -10,6 +10,8 @@ namespace bitdb::data {
 struct LogRecordPst {
   uint32_t fid;    // NOLINT
   int64_t offset;  // NOLINT
+
+  LogRecordPst& operator=(const LogRecordPst& other) = default;
 };
 
 enum LogRecordType : int8_t {
@@ -78,8 +80,7 @@ std::string EncodeLogRecord(const LogRecord& log_record);
  * @param bytes
  * @return LogRecordHeader
  */
-std::pair<LogRecordHeader, uint32_t> DecodeLogRecordHeader(
-    const Bytes& bytes);
+std::pair<LogRecordHeader, uint32_t> DecodeLogRecordHeader(const Bytes& bytes);
 
 /**
  * @brief Get the Log Record CRC object
@@ -88,7 +89,8 @@ std::pair<LogRecordHeader, uint32_t> DecodeLogRecordHeader(
  * @param header
  * @return uint32_t
  */
-uint32_t GetLogRecordCRC(const LogRecord& log_record, const std::string& header);
+uint32_t GetLogRecordCRC(const LogRecord& log_record,
+                         const std::string& header);
 
 constexpr size_t K_CRC_SIZE = 4;
 }  // namespace bitdb::data

@@ -2,6 +2,7 @@
 #include <cstring>
 #include <stdexcept>
 #include "bitdb/utils/bytes.h"
+#include "bitdb/utils/os_utils.h"
 #define DOCTEST_CONFIG_IMPLEMENT_WITH_MAIN
 #include <doctest/doctest.h>
 #include <memory>
@@ -10,25 +11,20 @@
 #include "bitdb/utils/defer.h"
 
 using bitdb::Bytes;
+using bitdb::RemoveFile;
 using bitdb::io::FileIO;
-
-void DestroyFile(const std::string& name) {
-  if (unlink(name.c_str()) != 0) {
-    throw std::runtime_error("Failed to remove file");
-  }
-}
 
 TEST_CASE("new file io manager") {
   std::string filepath = "/tmp/a.data";
   auto fileio = std::make_unique<bitdb::io::FileIO>(filepath);
-  defer { DestroyFile(filepath); };
+  defer { RemoveFile(filepath); };
   CHECK_NE(fileio, nullptr);
 }
 
 TEST_CASE("test file io write") {
   std::string filepath = "/tmp/a.data";
   auto fileio = std::make_unique<bitdb::io::FileIO>(filepath);
-  defer { DestroyFile(filepath); };
+  defer { RemoveFile(filepath); };
   CHECK_NE(fileio, nullptr);
 
   auto n = fileio->Write(Bytes{""});
@@ -47,7 +43,7 @@ TEST_CASE("test file io write") {
 TEST_CASE("test file io read") {
   std::string filepath = "/tmp/a.data";
   auto fileio = std::make_unique<bitdb::io::FileIO>(filepath);
-  defer { DestroyFile(filepath); };
+  defer { RemoveFile(filepath); };
   CHECK_NE(fileio, nullptr);
 
   auto n = fileio->Write(Bytes{"key-a"});
@@ -71,7 +67,7 @@ TEST_CASE("test file io read") {
 TEST_CASE("test file io multi read after multi write") {
   std::string filepath = "/tmp/a.data";
   auto fileio = std::make_unique<bitdb::io::FileIO>(filepath);
-  defer { DestroyFile(filepath); };
+  defer { RemoveFile(filepath); };
   CHECK_NE(fileio, nullptr);
 
   size_t offset = 0;
@@ -103,7 +99,7 @@ TEST_CASE("test file io multi read after multi write") {
 TEST_CASE("test file io multi read between multi write") {
   std::string filepath = "/tmp/a.data";
   auto fileio = std::make_unique<bitdb::io::FileIO>(filepath);
-  defer { DestroyFile(filepath); };
+  defer { RemoveFile(filepath); };
   CHECK_NE(fileio, nullptr);
 
   size_t offset = 0;
@@ -130,7 +126,7 @@ TEST_CASE("test file io multi read between multi write") {
 TEST_CASE("test file io sync") {
   std::string filepath = "/tmp/b.data";
   auto fileio = std::make_unique<bitdb::io::FileIO>(filepath);
-  defer { DestroyFile(filepath); };
+  defer { RemoveFile(filepath); };
   CHECK_NE(fileio, nullptr);
 
   auto res = fileio->Sync();

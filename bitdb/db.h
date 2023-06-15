@@ -21,10 +21,14 @@ class DB {
    * @return Status
    */
   static Status Open(const Options& options, DB** db_ptr);
+  static Status Close(DB** db_ptr);
 
   Status Put(const Bytes& key, const Bytes& value);
   Status Get(const Bytes& key, std::string* value);
   Status Delete(const Bytes& key);
+
+  std::string GetDirPath() const { return options_.dir_path; }
+  size_t GetOlderDataFileNum() const { return older_files_.size(); }
 
  private:
   Status AppendLogRecord(const data::LogRecord& log_record,
@@ -39,7 +43,8 @@ class DB {
   std::unique_ptr<data::DataFile> active_file_;
   ds::HashMap<uint32_t, std::unique_ptr<data::DataFile>> older_files_;
   std::unique_ptr<index::Indexer> index_;
-  std::unique_ptr<std::vector<uint32_t>> file_ids_; // 仅在加载文件时使用
+  std::unique_ptr<std::vector<uint32_t>> file_ids_;  // 仅在加载文件时使用
+  uint32_t next_file_id_{0};  // 仅在新建active data file 时使用
 };
 
 }  // namespace bitdb

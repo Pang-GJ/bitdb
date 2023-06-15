@@ -104,6 +104,11 @@ class SkipList {
     auto* prev = head_;
     for (auto i = level_ - 1; i >= 0; --i) {
       for (auto* curr = prev->next[i]; curr != nullptr; curr = curr->next[i]) {
+        // 加这个限制条件是因为会有这种情况： level_ > prev->level，此时的 curr
+        // 非法的
+        if (i >= prev->level) {
+          continue;
+        }
         if (curr->key == key) {
           return curr;
         }
@@ -125,6 +130,11 @@ class SkipList {
     auto* prev = head_;
     for (auto i = level_ - 1; i >= 0; --i) {
       for (auto* curr = prev->next[i]; curr != nullptr; curr = curr->next[i]) {
+        // 加这个限制条件是因为会有这种情况： level_ > prev->level，此时的 curr
+        // 非法的
+        if (i >= prev->level) {
+          continue;
+        }
         if (curr->key >= key) {
           break;
         }
@@ -146,6 +156,11 @@ class SkipList {
     auto* prev = head_;
     for (auto i = level_ - 1; i >= 0; --i) {
       for (auto* curr = prev->next[i]; curr != nullptr; curr = curr->next[i]) {
+        // 加这个限制条件是因为会有这种情况： level_ > prev->level，此时的 curr
+        // 非法的
+        if (i >= prev->level) {
+          continue;
+        }
         if (curr->key == key) {
           // The key is already existed, prevs are useless because no new node
           // insertion. stop searching.
