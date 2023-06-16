@@ -11,7 +11,7 @@ set_languages("cxx17")
 add_rules("mode.release", "mode.debug")
 
 -- inclue subdirs
-includes("bitdb", "tests", "example")
+includes("bitdb", "tests", "example", "benchmark")
 
 -- run script
 target("check-lint")

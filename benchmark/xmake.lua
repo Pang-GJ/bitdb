@@ -1,0 +1,10 @@
+add_requires("nanobench", {system = false})
+add_requires("fmt", {system=false})
+add_requires("spdlog", {system=false, configs = {header_only = true, fmt_external=true}})
+
+target("benchmark")
+  set_kind("binary")
+  add_deps("bitdb")
+  add_files("$(projectdir)/benchmark/benchmark.cpp")
+  add_cxxflags("-Ofast")
+  add_packages("nanobench", "fmt", "spdlog")
