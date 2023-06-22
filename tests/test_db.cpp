@@ -1,4 +1,5 @@
 #include <algorithm>
+#include <cstddef>
 #include "bitdb/index/index.h"
 #include "bitdb/options.h"
 #include "bitdb/utils/defer.h"
@@ -27,7 +28,7 @@ std::string GetRandomValue(size_t n) {
 
   std::string res;
   res.resize(n);
-  for (int i = 0; i < n; ++i) {
+  for (size_t i = 0; i < n; ++i) {
     auto rand_idx = rd.Uniform(letters.size());
     res[i] = letters[rand_idx];
   }

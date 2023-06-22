@@ -140,7 +140,11 @@ class FileWriter {
                log_line.content);
     auto written = ::write(file_id_, log_data.c_str(), log_data.length());
     if (is_output_stdout_) {
-      ::write(STDOUT_FILENO, log_data.c_str(), log_data.length());
+      auto stdout_written =
+          ::write(STDOUT_FILENO, log_data.c_str(), log_data.length());
+      if (stdout_written < 0) {
+        return;
+      }
     }
     if (written < 0) {
       return;

@@ -4,8 +4,6 @@ This is a tiny C++ project template using xmake.
 The requirements are:
 - xmake
 - A C++17 compatible compiler (doctest needed!).
-- fmt (just I like it...)
-- spdlog (awesome log library)
 - doctest (test needed)
 - clang-format (optional)
 - clang-tidy (optional)
