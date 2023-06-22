@@ -2,7 +2,7 @@
 #define DOCTEST_CONFIG_IMPLEMENT_WITH_MAIN
 #include <doctest/doctest.h>
 #include "bitdb/data/data_file.h"
-#include "bitdb/utils/logger.h"
+#include "bitdb/common/logger.h"
 #include "bitdb/utils/os_utils.h"
 using bitdb::data::DataFile;
 

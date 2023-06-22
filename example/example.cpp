@@ -1,6 +1,6 @@
 #include "bitdb/db.h"
 #include "bitdb/options.h"
-#include "bitdb/utils/logger.h"
+#include "bitdb/common/logger.h"
 
 int main(int argc, char* argv[]) {
   auto options = bitdb::DefaultOptions();

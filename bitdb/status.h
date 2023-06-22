@@ -102,20 +102,18 @@ class Status {
 #define CHECK_NOT_NULL_STATUS(pointer)                                      \
   do {                                                                      \
     if ((pointer) == nullptr) {                                             \
-      LOG_ERROR("{} is nullptr, at {}: {}: {}()", #pointer, __FILE__,       \
-                __LINE__, __func__);                                        \
+      LOG_ERROR("{} is nullptr", #pointer);                                 \
       return Status::InternalError(Format("{} is nullptr, at {}: {}: {}()", \
                                           #pointer, __FILE__, __LINE__,     \
                                           __func__));                       \
     }                                                                       \
   } while (false)
 
-#define CHECK_NOT_NULL(pointer)                                       \
-  do {                                                                \
-    if ((pointer) == nullptr) {                                       \
-      LOG_ERROR("{} is nullptr, at {}: {}: {}()", #pointer, __FILE__, \
-                __LINE__, __func__);                                  \
-    }                                                                 \
+#define CHECK_NOT_NULL(pointer)             \
+  do {                                      \
+    if ((pointer) == nullptr) {             \
+      LOG_ERROR("{} is nullptr", #pointer); \
+    }                                       \
   } while (false)
 
 // std::string GetDebugStr(const char* fmt = "");

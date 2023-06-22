@@ -4,7 +4,7 @@
 #include <unistd.h>
 #include <string>
 #include "bitdb/io/io_interface.h"
-#include "bitdb/utils/logger.h"
+#include "bitdb/common/logger.h"
 
 namespace bitdb::io {
 

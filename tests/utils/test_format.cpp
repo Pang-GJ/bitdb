@@ -1,4 +1,5 @@
 #include <iostream>
+#include "bitdb/common/logger.h"
 #include "bitdb/utils/format.h"
 #include "bitdb/utils/string_utils.h"
 #define DOCTEST_CONFIG_IMPLEMENT_WITH_MAIN
@@ -10,3 +11,5 @@ TEST_CASE("string output") {
   bitdb::print("{} + {} = {}\n", 1, 1, 2);
   bitdb::println("{} + {} = {}", 1, 1, 2);
 }
+
+TEST_CASE("test log") { LOG_INFO("hello {}", "world"); }

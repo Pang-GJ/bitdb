@@ -1,6 +1,6 @@
 #include "bitdb/status.h"
 #include "bitdb/utils/bytes.h"
-#include "bitdb/utils/logger.h"
+#include "bitdb/common/logger.h"
 #define DOCTEST_CONFIG_IMPLEMENT_WITH_MAIN
 #include <doctest/doctest.h>
 #include "bitdb/data/log_record.h"

@@ -2,7 +2,7 @@
 #include "bitdb/index/index.h"
 #include "bitdb/options.h"
 #include "bitdb/utils/defer.h"
-#include "bitdb/utils/logger.h"
+#include "bitdb/common/logger.h"
 #include "bitdb/utils/os_utils.h"
 #include "bitdb/utils/random.h"
 #include "bitdb/utils/string_utils.h"

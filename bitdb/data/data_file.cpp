@@ -8,7 +8,7 @@
 #include "bitdb/io/io_interface.h"
 #include "bitdb/status.h"
 #include "bitdb/utils/bytes.h"
-#include "bitdb/utils/logger.h"
+#include "bitdb/common/logger.h"
 #include "bitdb/utils/string_utils.h"
 
 namespace bitdb::data {

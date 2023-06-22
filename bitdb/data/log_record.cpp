@@ -6,7 +6,7 @@
 #include "bitdb/utils/bytes.h"
 #include "bitdb/utils/coding.h"
 #include "bitdb/utils/defer.h"
-#include "bitdb/utils/logger.h"
+#include "bitdb/common/logger.h"
 #include "crc32c/crc32c.h"
 
 namespace bitdb::data {
