@@ -6,6 +6,7 @@
 #include <chrono>
 #include <cstddef>
 #include <cstdint>
+#include <cstdio>
 #include <cstring>
 #include <ctime>
 #include <iomanip>
@@ -43,6 +44,27 @@ inline const char* LogLevelToString(LogLevel level) {
       return "CTRI";
     default:
       return "XXXX";
+  }
+}
+
+// 将日志级别转换为带颜色的字符串
+// 只在终端中使用
+inline const char* LogLevelToColorFulString(LogLevel level) {
+  switch (level) {
+    case LogLevel::TRACE:
+      return "\033[37mTRACE\033[0m";  // 设置为白色
+    case LogLevel::INFO:
+      return "\033[32mINFO\033[0m";  // 设置为绿色
+    case LogLevel::DEBUG:
+      return "\033[36mDEBUG\033[0m";  // 设置为青色
+    case LogLevel::WARN:
+      return "\033[33mWARN\033[0m";  // 设置为黄色
+    case LogLevel::ERROR:
+      return "\033[31mERROR\033[0m";  // 设置为红色
+    case LogLevel::CTRI:
+      return "\033[35mCTRI\033[0m";  // 设置为紫色
+    default:
+      return "\033[1mXXXX\033[0m";  // 设置为粗体白色
   }
 }
 
@@ -114,13 +136,28 @@ struct LogLine {
   std::string content;        // NOLINT
 };
 
+class ConsoleWriter {
+ public:
+  void Write(const LogLine& log_line) {
+    std::string log_data = Format(
+        "[{}] {} {} {}-{}({}): {}\n", LogLevelToColorFulString(log_line.level),
+        detail::FormatTimestamp(log_line.timestamp), log_line.thread_id,
+        log_line.file_name, log_line.line_num, log_line.func_name,
+        log_line.content);
+    auto res = ::write(STDOUT_FILENO, log_data.c_str(), log_data.length());
+    if (res < 0) {
+      perror("could not log to console\n");
+    }
+  }
+};
+
 class FileWriter {
  public:
   FileWriter(std::string_view log_file_name, uint32_t log_file_roll_size_mb,
-             bool is_stdout)
+             bool log_to_stdout)
       : log_file_roll_size_bytes_(log_file_roll_size_mb * 1024 * 1024),
         name_(log_file_name),
-        is_output_stdout_(is_stdout) {
+        log_to_stdout_(log_to_stdout) {
     RollFile();
   }
 
@@ -132,26 +169,23 @@ class FileWriter {
     file_id_ = -1;
   }
 
-  void Write(LogLine& log_line) {
+  void Write(const LogLine& log_line) {
     std::string log_data =
         Format("[{}] {} {} {}-{}({}): {}\n", LogLevelToString(log_line.level),
                detail::FormatTimestamp(log_line.timestamp), log_line.thread_id,
                log_line.file_name, log_line.line_num, log_line.func_name,
                log_line.content);
     auto written = ::write(file_id_, log_data.c_str(), log_data.length());
-    if (is_output_stdout_) {
-      auto stdout_written =
-          ::write(STDOUT_FILENO, log_data.c_str(), log_data.length());
-      if (stdout_written < 0) {
-        return;
-      }
-    }
     if (written < 0) {
+      perror("could not log to file\n");
       return;
     }
     bytes_written_ += written;
     if (bytes_written_ >= log_file_roll_size_bytes_) {
       RollFile();
+    }
+    if (log_to_stdout_) {
+      console_writer_.Write(log_line);
     }
   }
 
@@ -164,9 +198,9 @@ class FileWriter {
 
     bytes_written_ = 0;
     std::string log_file_name = name_;
-    log_file_name.append(Format(".{}.txt", ++file_writer_num_));
+    log_file_name.append(Format(".{}.log", ++file_writer_num_));
     file_id_ =
-        ::open(log_file_name.c_str(), O_CREAT | O_WRONLY | O_TRUNC, 0644);
+        ::open(log_file_name.c_str(), O_CREAT | O_WRONLY | O_APPEND, 0644);
   }
 
   uint32_t file_writer_num_ = 0;
@@ -174,13 +208,15 @@ class FileWriter {
   const uint32_t log_file_roll_size_bytes_;
   const std::string name_;
   int file_id_{-1};
-  bool is_output_stdout_{false};  // 是否输出到标准输出
+  bool log_to_stdout_;
+  ConsoleWriter console_writer_;
 };
 
 class Logger {
  public:
-  Logger() : buffer_(512), file_writer_("./log", 32, true) {
+  Logger() : buffer_(512), file_writer_("./log", 32, false) {
     persist_thread_ = std::thread(&Logger::PersistThreadFunc, this);
+    min_level_ = LogLevel::INFO;
   }
 
   ~Logger() {
@@ -188,9 +224,15 @@ class Logger {
     persist_thread_.join();
   }
 
+  LogLevel GetLogLevel() const { return min_level_; }
+  void SetLogLevel(LogLevel level) { min_level_ = level; }
+
   template <typename... Args>
   void Log(LogLevel level, std::string_view file, std::string_view func,
            int line, std::string_view fmt, Args&&... args) {
+    if (level < min_level_) {
+      return;
+    }
     LogLine log_line{.level = level,
                      .timestamp = detail::TimestampNow(),
                      .thread_id = detail::ThisThreadId()};
@@ -216,6 +258,7 @@ class Logger {
   FileWriter file_writer_;
   bool stop_{false};
   std::thread persist_thread_;
+  LogLevel min_level_;
 };
 
 }  // namespace bitdb::common

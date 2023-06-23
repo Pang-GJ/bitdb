@@ -1,4 +1,5 @@
 add_requires("nanobench", {system = false})
+add_requires("spdlog", {system = false})
 
 target("benchmark")
   set_kind("binary")
@@ -6,3 +7,10 @@ target("benchmark")
   add_files("$(projectdir)/benchmark/benchmark.cpp")
   add_cxxflags("-Ofast")
   add_packages("nanobench")
+
+target("bench_log")
+  set_kind("binary")
+  add_deps("bitdb")
+  add_files("$(projectdir)/benchmark/bench_log.cpp")
+  add_cxxflags("-Ofast")
+  add_packages("nanobench", "spdlog")
