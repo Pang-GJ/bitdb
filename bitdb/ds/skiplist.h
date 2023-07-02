@@ -1,36 +1,30 @@
 #pragma once
 
 #include <cassert>
-#include <cstddef>
 #include <cstdint>
 #include <cstdlib>
-#include <memory>
 #include <vector>
-#include "bitdb/utils/arena.h"
 #include "bitdb/utils/random.h"
 
 namespace bitdb::ds {
 
-constexpr int K_SKIP_LIST_MAX_LEVEL = 40;
+constexpr int8_t K_SKIP_LIST_MAX_LEVEL = 40;
 
 template <typename K, typename V>
 class SkipList {
   struct Node;
 
  public:
-  SkipList() : arena_(std::make_unique<Arena>()) {
-    head_ = NewNode(K_SKIP_LIST_MAX_LEVEL, K{}, V{});
-  }
-  bool IsEmpty() const { return size_ == 0; }
-  size_t Size() const { return size_; }
+  SkipList() { head_ = NewNode(K_SKIP_LIST_MAX_LEVEL, K{}, V{}); }
+
+  bool IsEmpty() const { return this->size_ == 0; }
+  size_t Size() const { return this->size_; }
   void Clear() {
-    level_ = 1;
-    size_ = 0;
+    this->level_ = 1;
+    this->size_ = 0;
   }
 
-  bool Has(const K& key) const {
-    return const_cast<SkipList*>(this)->FindNode(key) != nullptr;
-  }
+  bool Has(const K& key) const { return FindNode(key) != nullptr; }
 
   const V* Find(const K& key) const {
     auto* node = FindNode(key);
@@ -41,23 +35,23 @@ class SkipList {
   }
 
   void Insert(const K& key, const V& value) {
-    auto&& [node, prevs] = FindInsertPoint(key);
-
+    auto [node, prevs] = FindInsertPoint(key);
     if (node != nullptr) {
-      // 已经存在，更新值
+      // 已经存在， 更新值
       node->value = value;
       return;
     }
 
     auto level = RandomLevel();
     node = NewNode(level, key, value);
-
-    for (auto i = 0; i < std::min(level, this->level_); ++i) {
+    const auto min_level = std::min(level, this->level_);
+    for (auto i = 0; i < min_level; ++i) {
       node->next[i] = prevs[i]->next[i];
       prevs[i]->next[i] = node;
     }
 
     if (level > this->level_) {
+      // 给 head 新加几层
       for (auto i = this->level_; i < level; ++i) {
         head_->next[i] = node;
       }
@@ -67,7 +61,7 @@ class SkipList {
   }
 
   bool Remove(const K& key, V* value) {
-    auto&& [node, prevs] = FindRemovePoint(key);
+    auto [node, prevs] = FindRemovePoint(key);
     if (node == nullptr) {
       return false;
     }
@@ -87,11 +81,13 @@ class SkipList {
   }
 
  private:
-  Node* NewNode(int level, const K& key, const V& value) {
-    // TODO(pangguojian): 这里使用 Arena 会出现未知 coredump
-    // auto* space = arena_->Allocate(sizeof(Node) + level * sizeof(Node*));
-    auto* space = std::malloc(sizeof(Node) + level * sizeof(Node*));
-    return new (space) Node{key, value, level};
+  Node* NewNode(int8_t level, const K& key, const V& value) {
+    auto* memory = std::malloc(sizeof(Node) + level * sizeof(Node*));
+    auto* node = new (memory) Node{key, value, level};
+    for (auto i = 0; i < level; ++i) {
+      node->next[i] = nullptr;
+    }
+    return node;
   }
 
   void DeleteNode(Node* node) {
@@ -99,72 +95,49 @@ class SkipList {
     std::free(node);
   }
 
-  const Node* FindNode(const K& key) const {
-    // auto* prev = static_cast<const Node*>(&this->head_);
+  int8_t RandomLevel() {
+    // 以 1/k_branching 的概率提升一层
+    static const uint8_t k_branching = 4;
+    int8_t level = 1;
+    while (level < K_SKIP_LIST_MAX_LEVEL &&
+           ((rander_.Next() % k_branching) == 0)) {
+      ++level;
+    }
+    assert(level > 0 && level <= K_SKIP_LIST_MAX_LEVEL);
+    return level;
+  }
+
+  Node* FindNode(const K& key) const {
     auto* prev = head_;
-    for (auto i = level_ - 1; i >= 0; --i) {
+    for (auto i = this->level_ - 1; i >= 0; --i) {
+      if (i >= prev->level) {
+        continue;
+      }
       for (auto* curr = prev->next[i]; curr != nullptr; curr = curr->next[i]) {
-        // 加这个限制条件是因为会有这种情况： level_ > prev->level，此时的 curr
-        // 非法的
-        if (i >= prev->level) {
-          continue;
-        }
         if (curr->key == key) {
           return curr;
         }
         if (curr->key > key) {
-          // 这一层之后的所有的节点都比key大，搜素下一层
+          // 这一层之后的节点都比 key 大，搜索下一层
           break;
         }
         prev = curr;
       }
     }
-    return prev->next[0];
+    return nullptr;
   }
 
-  std::vector<Node*>& FindPrevNodes(const K& key) {
-    auto& prevs = prevs_node_cache_;
-    prevs.resize(level_);
+  std::pair<Node*, std::vector<Node*>> FindInsertPoint(const K& key) const {
+    std::vector<Node*> prevs(this->level_);
 
-    // auto* prev = static_cast<const Node*>(&head_);
     auto* prev = head_;
-    for (auto i = level_ - 1; i >= 0; --i) {
-      for (auto* curr = prev->next[i]; curr != nullptr; curr = curr->next[i]) {
-        // 加这个限制条件是因为会有这种情况： level_ > prev->level，此时的 curr
-        // 非法的
-        if (i >= prev->level) {
-          continue;
-        }
-        if (curr->key >= key) {
-          break;
-        }
-        prev = curr;
+    for (auto i = this->level_ - 1; i >= 0; --i) {
+      if (i >= prev->level) {
+        continue;
       }
-      prevs[i] = prev;
-    }
-    return prevs;
-  }
-
-  // findInsertPoint returns (*node, nullptr) to the existed node if the key
-  // exists, or (nullptr, []*node) to the previous nodes if the key doesn't
-  // exist
-  std::pair<Node*, std::vector<Node*>&> FindInsertPoint(const K& key) {
-    auto& prevs = prevs_node_cache_;
-    prevs.resize(level_);
-
-    // auto* prev = static_cast<const Node*>(&head_);
-    auto* prev = head_;
-    for (auto i = level_ - 1; i >= 0; --i) {
       for (auto* curr = prev->next[i]; curr != nullptr; curr = curr->next[i]) {
-        // 加这个限制条件是因为会有这种情况： level_ > prev->level，此时的 curr
-        // 非法的
-        if (i >= prev->level) {
-          continue;
-        }
         if (curr->key == key) {
-          // The key is already existed, prevs are useless because no new node
-          // insertion. stop searching.
-          return {curr, prevs};
+          return {curr, {}};
         }
         if (curr->key > key) {
           break;
@@ -176,46 +149,40 @@ class SkipList {
     return {nullptr, prevs};
   }
 
-  std::pair<Node*, std::vector<Node*>&> FindRemovePoint(const K& key) {
-    auto& prevs = FindPrevNodes(key);
+  std::pair<Node*, std::vector<Node*>> FindRemovePoint(const K& key) const {
+    std::vector<Node*> prevs(this->level_);
+    auto* prev = head_;
+    for (auto i = this->level_ - 1; i >= 0; --i) {
+      if (i >= prev->level) {
+        continue;
+      }
+      for (auto* curr = prev->next[i]; curr != nullptr; curr = curr->next[i]) {
+        if (curr->key >= key) {
+          break;
+        }
+        prev = curr;
+      }
+      prevs[i] = prev;
+    }
+
     auto node = prevs[0]->next[0];
     if (node == nullptr || node->key != key) {
-      return {nullptr, prevs};
+      return {nullptr, {}};
     }
     return {node, prevs};
   }
 
-  int RandomLevel() {
-    // Increase height with probability 1 in kBranching
-    static const unsigned int k_branching = 4;
-    int level = 1;
-    // 新加一层的概率是 1/4
-    while (level < K_SKIP_LIST_MAX_LEVEL &&
-           ((rander_.Next() % k_branching) == 0)) {
-      level++;
-    }
-    assert(level > 0);
-    assert(level <= K_SKIP_LIST_MAX_LEVEL);
-    return level;
-  }
-
   struct Node {
-    K key{};        // NOLINT
-    V value{};      // NOLINT
-    int level{0};   // NOLINT
+    K key;          // NOLINT
+    V value;        // NOLINT
+    int8_t level;   // NOLINT
     Node* next[0];  // NOLINT
   };
 
-  // struct HeadNode : Node {
-  //   Node* next[K_SKIP_LIST_MAX_LEVEL];  // NOLINT
-  // };
-
-  int level_ = 1;
-  size_t size_{0};
   Node* head_;
-  std::vector<Node*> prevs_node_cache_;
+  int8_t level_{1};
+  size_t size_{0};
   Random rander_;
-  std::unique_ptr<Arena> arena_;
 };
 
 }  // namespace bitdb::ds
