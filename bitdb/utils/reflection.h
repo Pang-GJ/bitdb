@@ -39,7 +39,7 @@ constexpr ReflectionEnumInfo ReflectEnum() {
   size_t colon = 0;
   size_t end = 0;
 
-  for (auto i = 0; i < len && !end; ++i) {
+  for (size_t i = 0; i < len && !end; ++i) {
     switch (info[i]) {
       case '=':
         (!equal1) ? equal1 = i : equal2 = i;

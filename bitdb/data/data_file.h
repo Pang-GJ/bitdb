@@ -29,7 +29,8 @@ struct DataFile {
    * @param size 如果 EOF，返回 0，否则返回日志记录大小
    * @return Status
    */
-  Status ReadLogRecord(int64_t offset, LogRecord* log_record, size_t* size);
+  Status ReadLogRecord(uint64_t offset, LogRecord* log_record,
+                       size_t* size);
   Status Write(const Bytes& buf);
   Status Sync();
 

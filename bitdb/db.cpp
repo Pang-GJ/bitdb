@@ -184,7 +184,7 @@ Status DB::LoadDataFiles() {
 
   // 遍历每个文件id，打开对应的数据文件
   const auto sz = file_ids_->size();
-  for (auto i = 0; i < sz; ++i) {
+  for (size_t i = 0; i < sz; ++i) {
     const auto& fid = file_ids_->at(i);
     std::unique_ptr<data::DataFile> data_file;
     CHECK_OK(data::DataFile::OpenDataFile(options_.dir_path, fid, &data_file));
@@ -204,7 +204,7 @@ Status DB::LoadIndexFromDataFiles() {
 
   // 遍历所有的文件id，处理其中的日志记录
   const auto& sz = file_ids_->size();
-  for (auto i = 0; i < sz; ++i) {
+  for (size_t i = 0; i < sz; ++i) {
     const auto& fid = file_ids_->at(i);
     std::unique_ptr<data::DataFile>* data_file_ptr;
 

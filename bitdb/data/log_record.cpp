@@ -3,10 +3,10 @@
 #include <cstring>
 #include <memory>
 #include <utility>
+#include "bitdb/common/logger.h"
 #include "bitdb/utils/bytes.h"
 #include "bitdb/utils/coding.h"
 #include "bitdb/utils/defer.h"
-#include "bitdb/common/logger.h"
 #include "crc32c/crc32c.h"
 
 namespace bitdb::data {
@@ -37,7 +37,7 @@ std::string EncodeLogRecord(const LogRecord& log_record) {
       crc32c::Crc32c(res.c_str() + K_CRC_SIZE, res.size() - K_CRC_SIZE);
   char crc32_buf[K_CRC_SIZE];
   EncodeFixed32(crc32_buf, crc32);
-  for (auto i = 0; i < K_CRC_SIZE; ++i) {
+  for (size_t i = 0; i < K_CRC_SIZE; ++i) {
     res[i] = crc32_buf[i];
   }
   return res;

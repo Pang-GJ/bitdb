@@ -27,7 +27,7 @@ Status DataFile::OpenDataFile(std::string_view path, uint32_t file_id,
   return Status::Ok();
 }
 
-Status DataFile::ReadLogRecord(int64_t offset, LogRecord* log_record,
+Status DataFile::ReadLogRecord(uint64_t offset, LogRecord* log_record,
                                size_t* size) {
   *size = 0;
   auto file_size = io_manager->Size();
