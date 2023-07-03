@@ -80,6 +80,54 @@ class SkipList {
     return true;
   }
 
+  class Iterator {
+   public:
+    explicit Iterator(const SkipList& list) : list_(list), node_(nullptr) {}
+
+    bool Valid() const { return node_ != nullptr; }
+
+    const K& Key() const {
+      assert(Valid());
+      return node_->key;
+    }
+
+    void Next() {
+      assert(Valid());
+      node_ = node_->next[0];
+    }
+
+    void Prev() {
+      assert(Valid());
+      // TODO(pangguojian): optimize the FindPrevNodes, just need return a
+      // point, not a vector
+      auto prevs = list_->FindPrevNodes(node_->Key);
+      if (prevs.empty()) {
+        node_ = nullptr;
+      }
+      node_ = prevs[0];
+    }
+
+    void Seek(const K& target) {
+      // TODO(pangguojian): optimize the FindRemovePoint, just need return a
+      // point, not a vector
+      auto [point, prevs] = list_->FindRemovePoint(target);
+      node_ = point;
+    }
+
+    void SeekToFirst() { node_ = list_->head_->next[0]; }
+
+    void SeekToLast() {
+      node_ = list_->FindLast();
+      if (node_ == list_->head_) {
+        node_ = nullptr;
+      }
+    }
+
+   private:
+    const SkipList* list_;
+    Node* node_;
+  };
+
  private:
   Node* NewNode(int8_t level, const K& key, const V& value) {
     auto* memory = std::malloc(sizeof(Node) + level * sizeof(Node*));
@@ -149,7 +197,7 @@ class SkipList {
     return {nullptr, prevs};
   }
 
-  std::pair<Node*, std::vector<Node*>> FindRemovePoint(const K& key) const {
+  std::vector<Node*> FindPrevNodes(const K& key) const {
     std::vector<Node*> prevs(this->level_);
     auto* prev = head_;
     for (auto i = this->level_ - 1; i >= 0; --i) {
@@ -164,12 +212,32 @@ class SkipList {
       }
       prevs[i] = prev;
     }
+    return prevs;
+  }
 
+  std::pair<Node*, std::vector<Node*>> FindRemovePoint(const K& key) const {
+    auto prevs = FindPrevNodes(key);
     auto node = prevs[0]->next[0];
     if (node == nullptr || node->key != key) {
       return {nullptr, {}};
     }
     return {node, prevs};
+  }
+
+  /* 获取 Skip List 中的最后一个节点。注意 FindLast() 实现不能从 level 0
+   * 直接使用 next 指针 一路往前寻找，因为这样的话其时间复杂度将为
+   * O(n)。而从最高层往下找的话，其时间复杂度为 O(logn) */
+  Node* FindLast() const {
+    auto* prev = head_;
+    for (auto i = this->level_; i >= 0; --i) {
+      if (i >= prev->level) {
+        continue;
+      }
+      for (auto* curr = prev->next[i]; curr != nullptr; curr = curr->next[i]) {
+        prev = curr;
+      }
+    }
+    return prev;
   }
 
   struct Node {
