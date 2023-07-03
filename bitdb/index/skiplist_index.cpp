@@ -24,4 +24,6 @@ bool SkipListIndexer::Delete(const Bytes& key, data::LogRecordPst** pos) {
   return res;
 }
 
+size_t SkipListIndexer::Size() const { return ds_.Size(); }
+
 }  // namespace bitdb::index

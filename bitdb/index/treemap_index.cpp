@@ -26,4 +26,6 @@ bool TreeIndexer::Delete(const Bytes& key, data::LogRecordPst** pos) {
   return ds_.erase(key.data()) == 1;
 }
 
+size_t TreeIndexer::Size() const { return ds_.size(); }
+
 }  // namespace bitdb::index

@@ -24,4 +24,6 @@ bool HashIndexer::Delete(const Bytes& key, data::LogRecordPst** pos) {
   return ds_.erase(key.data()) == 1;
 }
 
+size_t HashIndexer::Size() const { return ds_.size(); }
+
 }  // namespace bitdb::index
