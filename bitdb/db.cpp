@@ -4,11 +4,13 @@
 #include <cstdint>
 #include <memory>
 #include <mutex>
+#include <shared_mutex>
 #include <string>
 #include <utility>
 #include "bitdb/data/data_file.h"
 #include "bitdb/data/log_record.h"
 #include "bitdb/index/index.h"
+#include "bitdb/iterator.h"
 #include "bitdb/options.h"
 #include "bitdb/status.h"
 #include "bitdb/utils/os_utils.h"
@@ -70,27 +72,7 @@ Status DB::Get(const Bytes& key, std::string* value) {
     return Status::NotFound("index",
                             "index of key " + key.ToString() + " not_found");
   }
-  // 根据文件 id 找到对应的数据文件
-  std::unique_ptr<data::DataFile>* data_file_ptr;
-  if (log_record_pst->fid == active_file_->file_id) {
-    data_file_ptr = &active_file_;
-  } else {
-    data_file_ptr = &(older_files_[log_record_pst->fid]);
-  }
-
-  if (*data_file_ptr == nullptr) {
-    return Status::NotFound(
-        "DataFile", "data file of key: " + key.ToString() + " Not found");
-  }
-  data::LogRecord log_record;
-  size_t sz;
-  CHECK_OK((*data_file_ptr)
-               ->ReadLogRecord(log_record_pst->offset, &log_record, &sz));
-  if (log_record.type == data::LogRecordDeleted) {
-    return Status::NotFound("index",
-                            "index of key " + key.ToString() + " not_found");
-  }
-  *value = log_record.value;
+  CHECK_OK(GetValueByLogRecordPst(log_record_pst, key, value));
   return Status::Ok();
 }
 
@@ -108,6 +90,54 @@ Status DB::Delete(const Bytes& key) {
   CHECK_TRUE(index_->Delete(key, &pst),
              Format("index delete key: {} failed.", key.ToString()));
   delete pst;
+  return Status::Ok();
+}
+
+Status DB::NewIterator(std::unique_ptr<Iterator>* iter) {
+  auto* index_iter = index_->Iterator();
+  if (index_iter == nullptr) {
+    return Status::NotSupported(
+        "DB::NewIterator", "this kind of indexer didn't support iterator now");
+  }
+  *iter = std::make_unique<Iterator>(index_iter, this);
+  return Status::Ok();
+}
+
+Status DB::ListKeys(std::vector<std::string>* keys) {
+  auto* index_iter = index_->Iterator();
+  if (index_iter == nullptr) {
+    return Status::NotSupported(
+        "DB::NewIterator", "this kind of indexer didn't support iterator now");
+  }
+  keys->resize(index_->Size());
+  size_t idx = 0;
+  for (index_iter->SeekToFirst(); index_iter->Valid(); index_iter->Next()) {
+    (*keys)[idx] = index_iter->Key();
+    ++idx;
+  }
+  return Status::Ok();
+}
+
+Status DB::Sync() {
+  std::unique_lock lock(rwlock_);
+  return active_file_->Sync();
+}
+
+Status DB::Fold(const UserOperationFunc& fn) {
+  std::shared_lock lock(rwlock_);
+  auto* index_iter = index_->Iterator();
+  if (index_iter == nullptr) {
+    return Status::NotSupported(
+        "DB::NewIterator", "this kind of indexer didn't support iterator now");
+  }
+  for (index_iter->SeekToFirst(); index_iter->Valid(); index_iter->Next()) {
+    auto key = index_iter->Key();
+    std::string value;
+    CHECK_OK(GetValueByLogRecordPst(index_iter->Value(), key, &value));
+    if (!fn(key, value)) {
+      break;
+    }
+  }
   return Status::Ok();
 }
 
@@ -243,6 +273,32 @@ Status DB::LoadIndexFromDataFiles() {
   }
   // 清空 file_ids
   file_ids_->clear();
+  return Status::Ok();
+}
+
+Status DB::GetValueByLogRecordPst(data::LogRecordPst* log_record_pst,
+                                  const Bytes& key, std::string* value) {
+  // 根据文件 id 找到对应的数据文件
+  std::unique_ptr<data::DataFile>* data_file_ptr;
+  if (log_record_pst->fid == active_file_->file_id) {
+    data_file_ptr = &active_file_;
+  } else {
+    data_file_ptr = &(older_files_[log_record_pst->fid]);
+  }
+
+  if (*data_file_ptr == nullptr) {
+    return Status::NotFound(
+        "DataFile", "data file of key: " + key.ToString() + " Not found");
+  }
+  data::LogRecord log_record;
+  size_t sz;
+  CHECK_OK((*data_file_ptr)
+               ->ReadLogRecord(log_record_pst->offset, &log_record, &sz));
+  if (log_record.type == data::LogRecordDeleted) {
+    return Status::NotFound("index",
+                            "index of key " + key.ToString() + " not_found");
+  }
+  *value = log_record.value;
   return Status::Ok();
 }
 

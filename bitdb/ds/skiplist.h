@@ -91,6 +91,11 @@ class SkipList {
       return node_->key;
     }
 
+    const V& Value() const {
+      assert(Valid());
+      return node_->value;
+    }
+
     void Next() {
       assert(Valid());
       node_ = node_->next[0];

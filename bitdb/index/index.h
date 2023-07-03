@@ -2,6 +2,7 @@
 
 #include <memory>
 #include "bitdb/data/log_record.h"
+#include "bitdb/index/iterator.h"
 #include "bitdb/utils/bytes.h"
 
 namespace bitdb::index {
@@ -21,6 +22,8 @@ class Indexer {
   virtual bool Delete(const Bytes& key, data::LogRecordPst** pos) = 0;
 
   virtual size_t Size() const = 0;
+
+  virtual index::Iterator* Iterator() = 0;
 };
 
 // 内存索引类型

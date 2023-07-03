@@ -26,4 +26,12 @@ bool SkipListIndexer::Delete(const Bytes& key, data::LogRecordPst** pos) {
 
 size_t SkipListIndexer::Size() const { return ds_.Size(); }
 
+index::Iterator* SkipListIndexer::Iterator() {
+  std::unique_lock<std::shared_mutex> lock(rwlock_);
+  if (index_iter_ == nullptr) {
+    index_iter_ = new SkipListIndexerIterator(this);
+  }
+  return index_iter_;
+}
+
 }  // namespace bitdb::index

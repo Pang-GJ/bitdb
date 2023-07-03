@@ -1,5 +1,6 @@
 #pragma once
 
+#include <functional>
 #include <shared_mutex>
 #include "bitdb/data/data_file.h"
 #include "bitdb/data/log_record.h"
@@ -10,6 +11,7 @@
 #include "bitdb/status.h"
 namespace bitdb {
 
+class Iterator;
 class DB {
  public:
   explicit DB(Options options);
@@ -27,6 +29,23 @@ class DB {
   Status Get(const Bytes& key, std::string* value);
   Status Delete(const Bytes& key);
 
+  Status NewIterator(std::unique_ptr<Iterator>* iter);
+
+  Status ListKeys(std::vector<std::string>* keys);
+
+  Status Sync();
+
+  /**
+   * @brief  Fold retrieves all the data and iteratively executes an
+   * user-specified operation (UDF) Once the UDF failed, the iteration will stop
+   * intermediatelly
+   *
+   * @return Status
+   */
+  using UserOperationFunc =
+      std::function<bool(const std::string&, const std::string&)>;
+  Status Fold(const UserOperationFunc& fn);
+
   std::string GetDirPath() const { return options_.dir_path; }
   size_t GetOlderDataFileNum() const { return older_files_.size(); }
 
@@ -37,6 +56,11 @@ class DB {
 
   Status LoadDataFiles();
   Status LoadIndexFromDataFiles();
+
+  Status GetValueByLogRecordPst(data::LogRecordPst* log_record_pst,
+                                const Bytes& key, std::string* value);
+
+  friend class Iterator;
 
   std::shared_mutex rwlock_;
   Options options_;

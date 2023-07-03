@@ -3,6 +3,7 @@
 #include "bitdb/data/log_record.h"
 #include "bitdb/ds/treemap.h"
 #include "bitdb/index/index.h"
+#include "bitdb/index/iterator.h"
 #include "bitdb/utils/bytes.h"
 
 namespace bitdb::index {
@@ -13,9 +14,10 @@ class TreeIndexer : public Indexer {
   data::LogRecordPst* Get(const Bytes& key) override;
   bool Delete(const Bytes& key, data::LogRecordPst** pos) override;
   size_t Size() const override;
- 
+  index::Iterator* Iterator() override { return nullptr; }
+
  private:
-  std::shared_mutex rwlock_;  
+  std::shared_mutex rwlock_;
   ds::TreeMap<std::string, data::LogRecordPst*> ds_;
 };
 
