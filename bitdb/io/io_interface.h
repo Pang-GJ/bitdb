@@ -11,10 +11,10 @@ namespace bitdb::io {
 #define DataFilePerm \
   (S_IRWXU | S_IROTH);  // 0644 表示创建一个文件，文件所有者可读写，其他人只能读
 
-class IOInterface {
+class IOHandler {
  public:
-  IOInterface() = default;
-  virtual ~IOInterface() = default;
+  IOHandler() = default;
+  virtual ~IOHandler() = default;
 
   virtual int Read(char* buf, size_t count, off_t offset) = 0;
 
@@ -24,6 +24,6 @@ class IOInterface {
   virtual size_t Size() = 0;
 };
 
-std::unique_ptr<IOInterface> NewIOInterface(const std::string& file_name);
+std::unique_ptr<IOHandler> NewIOHandler(const std::string& file_name);
 
 }  // namespace bitdb::io

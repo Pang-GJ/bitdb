@@ -14,23 +14,23 @@
 namespace bitdb::data {
 
 DataFile::DataFile(uint32_t file_id,
-                   std::unique_ptr<io::IOInterface> io_manager)
-    : file_id(file_id), write_off(0), io_manager(std::move(io_manager)) {}
+                   std::unique_ptr<io::IOHandler> io_handler)
+    : file_id(file_id), write_off(0), io_handler(std::move(io_handler)) {}
 
 Status DataFile::OpenDataFile(std::string_view path, uint32_t file_id,
                               std::unique_ptr<DataFile>* data_file_ptr) {
   // TODO(pangguojian): more check error
   auto file_name = Format("{}/{}{}", path, file_id, K_DATA_FILE_SUFFIX);
-  auto io_manager = io::NewIOInterface(file_name);
-  CHECK_NOT_NULL_STATUS(io_manager);
-  *data_file_ptr = std::make_unique<DataFile>(file_id, std::move(io_manager));
+  auto io_handler = io::NewIOHandler(file_name);
+  CHECK_NOT_NULL_STATUS(io_handler);
+  *data_file_ptr = std::make_unique<DataFile>(file_id, std::move(io_handler));
   return Status::Ok();
 }
 
 Status DataFile::ReadLogRecord(uint64_t offset, LogRecord* log_record,
                                size_t* size) {
   *size = 0;
-  auto file_size = io_manager->Size();
+  auto file_size = io_handler->Size();
   if (file_size == 0) {
     return Status::IOError("Data::ReadLogRecord", "file size equals zero.");
   }
@@ -88,8 +88,8 @@ Status DataFile::ReadLogRecord(uint64_t offset, LogRecord* log_record,
 }
 
 Status DataFile::Write(const Bytes& buf) {
-  CHECK_NOT_NULL_STATUS(io_manager);
-  auto size = io_manager->Write(buf);
+  CHECK_NOT_NULL_STATUS(io_handler);
+  auto size = io_handler->Write(buf);
   if (size < 0) {
     return Status::IOError("DataFile::Write", "write datafile failed.");
   }
@@ -98,8 +98,8 @@ Status DataFile::Write(const Bytes& buf) {
 }
 
 Status DataFile::Sync() {
-  CHECK_NOT_NULL_STATUS(io_manager);
-  auto res = io_manager->Sync();
+  CHECK_NOT_NULL_STATUS(io_handler);
+  auto res = io_handler->Sync();
   if (res < 0) {
     return Status::IOError("DataFile::Sync()", "sync failed.");
   }
@@ -109,9 +109,9 @@ Status DataFile::Sync() {
 std::string DataFile::ReadNBytes(int64_t n, int64_t offset) {
   char buffer[n + 1];
   buffer[n] = '\n';
-  auto res = io_manager->Read(buffer, n, offset);
+  auto res = io_handler->Read(buffer, n, offset);
   if (res < 0) {
-    LOG_WARN("io_manager Read res less than 0.");
+    LOG_WARN("io_handler Read res less than 0.");
     return {};
   }
   return {buffer, buffer + res};

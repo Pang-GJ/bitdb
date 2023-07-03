@@ -14,9 +14,9 @@ constexpr std::string_view K_DATA_FILE_SUFFIX = ".data";
 struct DataFile {
   uint32_t file_id;                             // NOLINT
   int64_t write_off;                            // NOLINT
-  std::unique_ptr<io::IOInterface> io_manager;  // NOLINT
+  std::unique_ptr<io::IOHandler> io_handler;  // NOLINT
 
-  DataFile(uint32_t file_id, std::unique_ptr<io::IOInterface> io_manager);
+  DataFile(uint32_t file_id, std::unique_ptr<io::IOHandler> io_handler);
 
   static Status OpenDataFile(std::string_view path, uint32_t file_id,
                              std::unique_ptr<DataFile>* data_file_ptr);

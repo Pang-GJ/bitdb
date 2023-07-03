@@ -4,7 +4,7 @@
 
 namespace bitdb::io {
 
-std::unique_ptr<IOInterface> NewIOInterface(const std::string& file_name) {
+std::unique_ptr<IOHandler> NewIOHandler(const std::string& file_name) {
   return std::make_unique<FileIO>(file_name);
 }
 

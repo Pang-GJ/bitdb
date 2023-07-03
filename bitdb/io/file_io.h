@@ -8,7 +8,7 @@
 
 namespace bitdb::io {
 
-class FileIO : public IOInterface {
+class FileIO : public IOHandler {
  public:
   explicit FileIO(const std::string& file_name) {
     fd_ = ::open(file_name.c_str(), O_CREAT | O_RDWR | O_APPEND,
