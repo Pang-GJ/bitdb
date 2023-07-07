@@ -19,7 +19,7 @@ namespace bitdb {
  * @return true
  * @return false
  */
-bool CheckOrCreateDirectory(std::string_view dir_path) {
+inline bool CheckOrCreateDirectory(std::string_view dir_path) {
   struct stat st;
   if (stat(dir_path.data(), &st) == 0) {
     return (st.st_mode & S_IFDIR) != 0;
@@ -37,7 +37,7 @@ bool CheckOrCreateDirectory(std::string_view dir_path) {
   return false;
 }
 
-std::string GetTempDir() {
+inline std::string GetTempDir() {
   auto* tempdir = std::getenv("TMPDIR");  // 获取临时目录环境变量
   if (tempdir == nullptr) {               // 如果环境变量不存在
     tempdir = std::getenv("TEMP");
@@ -51,14 +51,14 @@ std::string GetTempDir() {
   return {tempdir};
 }
 
-void RemoveFile(const std::string& file_name) {
+inline void RemoveFile(const std::string& file_name) {
   if (unlink(file_name.c_str()) != 0) {
     LOG_ERROR("Failed to remove file: {}", file_name);
     exit(-1);
   }
 }
 
-void RemoveDir(const std::string& dir_name) {
+inline void RemoveDir(const std::string& dir_name) {
   DIR* dp = opendir(dir_name.c_str());
   if (dp == nullptr) {
     LOG_ERROR("Failed to open directory: {}", dir_name);

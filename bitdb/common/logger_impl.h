@@ -214,7 +214,7 @@ class FileWriter {
 
 class Logger {
  public:
-  Logger() : buffer_(512), file_writer_("./log", 32, false) {
+  Logger() : buffer_(512), file_writer_("./log", 32, true) {
     persist_thread_ = std::thread(&Logger::PersistThreadFunc, this);
     min_level_ = LogLevel::INFO;
   }

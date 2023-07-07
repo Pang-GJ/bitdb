@@ -82,7 +82,7 @@ class SkipList {
 
   class Iterator {
    public:
-    explicit Iterator(const SkipList& list) : list_(list), node_(nullptr) {}
+    explicit Iterator(const SkipList& skiplist) : list_(&skiplist), node_(nullptr) {}
 
     bool Valid() const { return node_ != nullptr; }
 
@@ -105,7 +105,7 @@ class SkipList {
       assert(Valid());
       // TODO(pangguojian): optimize the FindPrevNodes, just need return a
       // point, not a vector
-      auto prevs = list_->FindPrevNodes(node_->Key);
+      auto prevs = list_->FindPrevNodes(node_->key);
       if (prevs.empty()) {
         node_ = nullptr;
       }
