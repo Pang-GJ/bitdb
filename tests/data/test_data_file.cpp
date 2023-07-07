@@ -65,7 +65,7 @@ TEST_CASE("test read log_record from data file") {
 
   // 只有一条日志记录
   bitdb::data::LogRecord log_record1{"name", "bitdb",
-                                     bitdb::data::LogRecordNormal};
+                                     bitdb::data::NormalLogRecord};
   auto encode_bytes1 = bitdb::data::EncodeLogRecord(log_record1);
   status = data_file->Write(encode_bytes1);
   CHECK_EQ(true, status.IsOk());
@@ -83,7 +83,7 @@ TEST_CASE("test read log_record from data file") {
 
   // 多条 log record 从不同位置读取
   bitdb::data::LogRecord log_record2{"name", "bitcask-kv",
-                                     bitdb::data::LogRecordNormal};
+                                     bitdb::data::NormalLogRecord};
   auto encode_bytes2 = bitdb::data::EncodeLogRecord(log_record2);
   LOG_INFO("encode_bytes2: {}", encode_bytes2);
   status = data_file->Write(encode_bytes2);
@@ -98,7 +98,7 @@ TEST_CASE("test read log_record from data file") {
 
   // 被删除的数据在文件末尾
   bitdb::data::LogRecord log_record3{"name", "delete-data",
-                                     bitdb::data::LogRecordDeleted};
+                                     bitdb::data::DeletedLogRecord};
   auto encode_bytes3 = bitdb::data::EncodeLogRecord(log_record3);
   LOG_INFO("encode_bytes3: {}", encode_bytes3);
   status = data_file->Write(encode_bytes3);

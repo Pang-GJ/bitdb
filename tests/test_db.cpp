@@ -1,14 +1,15 @@
 #include <algorithm>
 #include <cstddef>
+#include "bitdb/common/logger.h"
 #include "bitdb/index/index.h"
 #include "bitdb/options.h"
 #include "bitdb/utils/defer.h"
-#include "bitdb/common/logger.h"
 #include "bitdb/utils/os_utils.h"
 #include "bitdb/utils/random.h"
 #include "bitdb/utils/string_utils.h"
 #define DOCTEST_CONFIG_IMPLEMENT_WITH_MAIN
 #include <doctest/doctest.h>
+#include "bitdb/batch.h"
 #include "bitdb/db.h"
 
 void DestroyDB(bitdb::DB* db) {
@@ -52,7 +53,7 @@ TEST_CASE("DB Put") {
   auto options = bitdb::DefaultOptions();
   options.dir_path = "/tmp/bitdb-put";
   options.data_file_size = 64 * 1024 * 1024;
-  options.index_type = bitdb::index::HashMapIndex;
+  options.index_type = bitdb::index::SkipListIndex;
   auto status = bitdb::DB::Open(options, &db);
   CHECK_EQ(true, status.IsOk());
   CHECK_NE(nullptr, db);
@@ -114,7 +115,7 @@ TEST_CASE("DB Get") {
   auto options = bitdb::DefaultOptions();
   options.dir_path = "/tmp/bitdb-get";
   options.data_file_size = 64 * 1024 * 1024;
-  options.index_type = bitdb::index::HashMapIndex;
+  options.index_type = bitdb::index::SkipListIndex;
   auto status = bitdb::DB::Open(options, &db);
   CHECK_EQ(true, status.IsOk());
   CHECK_NE(nullptr, db);
@@ -151,15 +152,12 @@ TEST_CASE("DB Get") {
 
   status = db->Get(GetTestKey(111), &got_val1);
   CHECK_EQ(true, status.IsOk());
-  LOG_INFO("111 key, value: {}", got_val1);
 
   status = db->Get(GetTestKey(222), &got_val1);
   CHECK_EQ(true, status.IsOk());
-  LOG_INFO("222 key, value: {}", got_val1);
 
   status = db->Get(GetTestKey(333), &got_val1);
   CHECK_EQ(true, status.IsOk());
-  LOG_INFO("333 key, value: {}", got_val1);
 }
 
 TEST_CASE("DB Delete") {
@@ -168,7 +166,7 @@ TEST_CASE("DB Delete") {
   auto options = bitdb::DefaultOptions();
   options.dir_path = "/tmp/bitdb-del";
   options.data_file_size = 64 * 1024 * 1024;
-  options.index_type = bitdb::index::HashMapIndex;
+  options.index_type = bitdb::index::SkipListIndex;
   auto status = bitdb::DB::Open(options, &db);
   CHECK_EQ(true, status.IsOk());
   CHECK_NE(nullptr, db);
@@ -214,4 +212,46 @@ TEST_CASE("DB Delete") {
   status = db->Get(GetTestKey(13), &val2);
   CHECK_EQ(true, status.IsOk());
   CHECK_EQ(val1, val2);
+}
+
+TEST_CASE("DB WriteBatch") {
+  bitdb::DB* db = nullptr;
+  defer { DestroyDB(db); };
+  auto options = bitdb::DefaultOptions();
+  options.dir_path = "/tmp/bitdb-del";
+  options.data_file_size = 64 * 1024 * 1024;
+  options.index_type = bitdb::index::SkipListIndex;
+  auto status = bitdb::DB::Open(options, &db);
+  CHECK_EQ(true, status.IsOk());
+  CHECK_NE(nullptr, db);
+
+  // write data, not commit
+  bitdb::WriteBatch* wb;
+  status = db->NewWriteBach(&wb, bitdb::DefaultWriteBatchOptions());
+  CHECK_EQ(true, status.IsOk());
+  CHECK_EQ(true, wb->Put("114", "514").IsOk());
+  CHECK_EQ(true, wb->Delete("2002").IsOk());
+
+  // no data found in DB because of no commit
+  std::string value;
+  CHECK_EQ(true, db->Get("114", &value).IsNotFound());
+
+  // write and commit normally
+  CHECK_EQ(true, wb->Commit().IsOk());
+
+  // the DB should has data
+  CHECK_EQ(true, db->Get("114", &value).IsOk());
+  CHECK_EQ(value, "514");
+
+  // restart should also get the data
+  CHECK_EQ(true, bitdb::DB::Close(&db).IsOk());
+  CHECK_EQ(nullptr, db);
+  CHECK_EQ(true, bitdb::DB::Open(options, &db).IsOk());
+  CHECK_NE(nullptr, db);
+  status = db->Get("114", &value);
+  CHECK_EQ(true, status.IsOk());
+  if (!status.IsOk()) {
+    LOG_ERROR("error: {}", status.ToString());
+  }
+  CHECK_EQ(value, "514");
 }

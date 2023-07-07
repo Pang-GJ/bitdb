@@ -7,8 +7,11 @@
 #include <shared_mutex>
 #include <string>
 #include <utility>
+#include "bitdb/batch.h"
 #include "bitdb/data/data_file.h"
 #include "bitdb/data/log_record.h"
+#include "bitdb/data/transaction_record.h"
+#include "bitdb/ds/treemap.h"
 #include "bitdb/index/index.h"
 #include "bitdb/iterator.h"
 #include "bitdb/options.h"
@@ -48,13 +51,14 @@ Status DB::Put(const Bytes& key, const Bytes& value) {
     return Status::InvalidArgument("DB::Put", "key is empty");
   }
 
-  data::LogRecord log_record{key.data(), value.data(), data::LogRecordNormal};
+  data::LogRecord log_record{
+      data::EncodeLogRecordWithTranID(key, data::K_NON_TRAN_ID), value.data(),
+      data::NormalLogRecord};
   auto* pst = new data::LogRecordPst;
+  std::unique_lock lock(rwlock_);
   CHECK_OK(AppendLogRecord(log_record, pst));
-  auto ok = index_->Put(key, pst);
-  if (!ok) {
-    return Status::Corruption("index put", "failed to update index");
-  }
+  CHECK_TRUE(index_->Put(key, pst),
+             Format("fail to put index of key: {}", key.ToString()));
   return Status::Ok();
 }
 
@@ -80,16 +84,28 @@ Status DB::Delete(const Bytes& key) {
   if (key.empty()) {
     return Status::InvalidArgument("DB::Delete", "key is empty");
   }
+  std::unique_lock lock(rwlock_);
   auto* pst = index_->Get(key);
   if (pst == nullptr) {
     return Status::Ok("DB::Delete",
                       Format("key: {} don't exist.", key.ToString()));
   }
-  data::LogRecord log_record{.key = key.data(), .type = data::LogRecordDeleted};
+  data::LogRecord log_record{
+      .key = data::EncodeLogRecordWithTranID(key, data::K_NON_TRAN_ID),
+      .type = data::DeletedLogRecord};
   CHECK_OK(AppendLogRecord(log_record, pst));
   CHECK_TRUE(index_->Delete(key, &pst),
              Format("index delete key: {} failed.", key.ToString()));
   delete pst;
+  return Status::Ok();
+}
+
+Status DB::NewWriteBach(WriteBatch** wb_ptr, const WriteBatchOptions& options) {
+  if (wb_ptr == nullptr) {
+    return Status::InvalidArgument("DB::NewWriteBatch", "wb is nullptr");
+  }
+  *wb_ptr = nullptr;
+  *wb_ptr = new WriteBatch(this, options);
   return Status::Ok();
 }
 
@@ -143,7 +159,6 @@ Status DB::Fold(const UserOperationFunc& fn) {
 
 Status DB::AppendLogRecord(const data::LogRecord& log_record,
                            data::LogRecordPst* pst) {
-  std::unique_lock lock(rwlock_);
   if (pst == nullptr) {
     return Status::InvalidArgument("DB::AppendLogRecord",
                                    "pst should not be nullptr");
@@ -232,6 +247,9 @@ Status DB::LoadIndexFromDataFiles() {
     return Status::Ok();
   }
 
+  uint32_t current_tran_id = data::K_NON_TRAN_ID;
+  ds::TreeMap<uint32_t, std::vector<data::TransactionRecord>>
+      transaction_records;
   // 遍历所有的文件id，处理其中的日志记录
   const auto& sz = file_ids_->size();
   for (size_t i = 0; i < sz; ++i) {
@@ -244,6 +262,16 @@ Status DB::LoadIndexFromDataFiles() {
       data_file_ptr = &older_files_[fid];
     }
 
+    auto update_index = [&](const Bytes& key, data::LogRecordType type,
+                            data::LogRecordPst* pst) -> Status {
+      if (type == data::DeletedLogRecord) {
+        CHECK_TRUE(this->index_->Delete(key, nullptr));
+      } else {
+        CHECK_TRUE(this->index_->Put(key, pst));
+      }
+      return Status::Ok();
+    };
+
     int64_t offset = 0;
     while (true) {
       data::LogRecord log_record;
@@ -253,14 +281,32 @@ Status DB::LoadIndexFromDataFiles() {
         break;
       }
 
-      if (log_record.type == data::LogRecordDeleted) {
-        data::LogRecordPst* pst = nullptr;
-        CHECK_TRUE(index_->Delete(log_record.key, &pst));
-        delete pst;
+      auto [real_key, tran_id] =
+          data::DecodeLogRecordWithTranID(log_record.key);
+
+      if (tran_id == data::K_NON_TRAN_ID) {
+        auto* pst = log_record.type == data::DeletedLogRecord
+                        ? nullptr
+                        : new data::LogRecordPst{.fid = fid, .offset = offset};
+        CHECK_OK(update_index(real_key, log_record.type, pst));
       } else {
-        auto* log_record_pst =
-            new data::LogRecordPst{.fid = fid, .offset = offset};
-        CHECK_TRUE(index_->Put(log_record.key, log_record_pst));
+        if (log_record.type == data::TransactionFinishedLogRecord) {
+          for (const auto& tran_record : transaction_records[tran_id]) {
+            CHECK_OK(update_index(tran_record.log_record.key,
+                                  tran_record.log_record.type,
+                                  tran_record.pst));
+          }
+          transaction_records.erase(tran_id);
+        } else {
+          log_record.key = real_key;
+          data::TransactionRecord tran_record{
+              .log_record = log_record,
+              .pst = new data::LogRecordPst{.fid = fid, .offset = offset}};
+          transaction_records[tran_id].emplace_back(tran_record);
+        }
+      }
+      if (tran_id > current_tran_id) {
+        current_tran_id = tran_id;
       }
 
       offset += sz;
@@ -271,6 +317,7 @@ Status DB::LoadIndexFromDataFiles() {
       active_file_->write_off = offset;
     }
   }
+  this->transaction_id_ = current_tran_id;
   // 清空 file_ids
   file_ids_->clear();
   return Status::Ok();
@@ -294,7 +341,7 @@ Status DB::GetValueByLogRecordPst(data::LogRecordPst* log_record_pst,
   size_t sz;
   CHECK_OK((*data_file_ptr)
                ->ReadLogRecord(log_record_pst->offset, &log_record, &sz));
-  if (log_record.type == data::LogRecordDeleted) {
+  if (log_record.type == data::DeletedLogRecord) {
     return Status::NotFound("index",
                             "index of key " + key.ToString() + " not_found");
   }

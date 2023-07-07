@@ -5,6 +5,7 @@
 #include "bitdb/utils/bytes.h"
 namespace bitdb {
 
+constexpr uint8_t K_MAX_VARINT32_LEN = 4;
 /**
  * @brief 对 value 进行 varint 数据编码
  *

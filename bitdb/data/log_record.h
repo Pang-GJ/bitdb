@@ -15,8 +15,10 @@ struct LogRecordPst {
 };
 
 enum LogRecordType : int8_t {
-  LogRecordNormal = 1,
-  LogRecordDeleted,
+  NormalLogRecord = 1,
+  DeletedLogRecord,
+  TransactionFinishedLogRecord  // // TransactionFinishedLogRecord indicates
+                                // that a Transaction is finished
 };
 
 constexpr size_t K_LOG_RECORD_TYPE_SIZE = 1;
@@ -54,9 +56,9 @@ struct LogRecord {
   std::string ToString() const {
     auto TypeToString = [](LogRecordType type) {  // NOLINT
       switch (type) {
-        case LogRecordNormal:
+        case NormalLogRecord:
           return "Normal";
-        case LogRecordDeleted:
+        case DeletedLogRecord:
           return "Deleted";
         default:
           return "Unknown";
