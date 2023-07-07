@@ -6,6 +6,8 @@
 namespace bitdb {
 
 constexpr uint8_t K_MAX_VARINT32_LEN = 4;
+constexpr uint8_t K_MAX_VARINT64_LEN = 8;
+
 /**
  * @brief 对 value 进行 varint 数据编码
  *
@@ -23,6 +25,10 @@ int EncodeVarint32(char* dst, uint32_t value);
  * @return int 编码的长度
  */
 int DecodeVarint32(const char* src, uint32_t* value);
+
+int EncodeVarint64(char* dst, uint64_t value);
+
+int DecodeVarint64(const char* src, uint64_t* value);
 
 // Lower-level versions of Put... that write directly into a character buffer
 // REQUIRES: dst has enough space for the value being written

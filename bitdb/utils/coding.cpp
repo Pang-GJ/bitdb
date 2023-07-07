@@ -19,8 +19,8 @@ int EncodeVarint32(char* dst, uint32_t value) {
 }
 
 int DecodeVarint32(const char* src, uint32_t* value) {
-  auto buffer = reinterpret_cast<const uint8_t*>(src);
-  auto buffer_begin = buffer;
+  auto* buffer = reinterpret_cast<const uint8_t*>(src);
+  auto* buffer_begin = buffer;
   uint32_t result = 0;
   int bitsize = 0;
   while (((*buffer) & 0x80) !=
@@ -32,6 +32,37 @@ int DecodeVarint32(const char* src, uint32_t* value) {
     ++buffer;
   }
   result |= (*buffer) << bitsize;  // 还原最高位，并且算出了答案
+  if (result >= 0) {
+    *value = result;
+    return buffer + 1 - buffer_begin;
+  }
+  *value = 0;
+  return 0;
+}
+
+int EncodeVarint64(char* dst, uint64_t value) {
+  auto* target = reinterpret_cast<uint8_t*>(dst);
+  auto* target_begin = target;
+  while (value >= 0x80) {
+    *target = static_cast<uint8_t>(value | 0x80);
+    value >>= 7;
+    ++target;
+  }
+  *target = static_cast<uint8_t>(value);
+  return target + 1 - target_begin;
+}
+
+int DecodeVarint64(const char* src, uint64_t* value) {
+  auto* buffer = reinterpret_cast<const uint8_t*>(src);
+  auto* buffer_begin = buffer;
+  uint64_t result = 0;
+  int bitsize = 0;
+  while (((*buffer) & 0x80) != 0) {
+    result |= ((*buffer) ^ 0x80) << bitsize;
+    bitsize += 7;
+    ++buffer;
+  }
+  result |= (*buffer) << bitsize;
   if (result >= 0) {
     *value = result;
     return buffer + 1 - buffer_begin;
