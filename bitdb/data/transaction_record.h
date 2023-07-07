@@ -13,7 +13,7 @@ struct TransactionRecord {
 // TODO(pangguojian): 这里需要 64 吗？还是 32 够了
 constexpr uint32_t K_NON_TRAN_ID = 0;
 
-extern const std::string K_TRANSACTION_FINISHED_KEY;
+constexpr std::string_view K_TRANSACTION_FINISHED_KEY = "Transaction-finished";
 
 std::string EncodeLogRecordWithTranID(const Bytes& key, uint32_t tran_id);
 

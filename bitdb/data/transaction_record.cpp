@@ -3,7 +3,6 @@
 #include "bitdb/utils/coding.h"
 
 namespace bitdb::data {
-const std::string K_TRANSACTION_FINISHED_KEY = "Transaction-finished";
 
 std::string EncodeLogRecordWithTranID(const Bytes& key, uint32_t tran_id) {
   char buf[K_MAX_VARINT32_LEN];
