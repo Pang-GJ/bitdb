@@ -23,6 +23,9 @@ class Bytes {
   Bytes(const std::string& str)  // NOLINT
       : data_(str.data()), size_(str.size()) {}
 
+  Bytes(std::string_view str)  // NOLINT
+      : data_(str.data()), size_(str.size()) {}
+
   Bytes(const char* str) : data_(str), size_(std::strlen(str)) {}  // NOLINT
 
   ~Bytes() {

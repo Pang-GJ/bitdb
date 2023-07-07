@@ -24,6 +24,17 @@ TEST_CASE("encode and decode single variant32") {
   }
 }
 
+TEST_CASE("encode and decode single variant64") {
+  for (uint64_t i = 500000; i < 1000000; ++i) {
+    char buf[8];
+    auto encode_len = bitdb::EncodeVarint64(buf, i);
+    uint64_t decode_val;
+    auto decode_len = bitdb::DecodeVarint64(buf, &decode_val);
+    CHECK_EQ(encode_len, decode_len);
+    CHECK_EQ(i, decode_val);
+  }
+}
+
 TEST_CASE("encode and decode multiple variant32") {
   for (uint32_t i = 500000; i < 1000000; ++i) {
     char buf[10];

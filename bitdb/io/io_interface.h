@@ -24,6 +24,6 @@ class IOHandler {
   virtual size_t Size() = 0;
 };
 
-std::unique_ptr<IOHandler> NewIOHandler(const std::string& file_name);
+std::unique_ptr<IOHandler> NewIOHandler(std::string_view file_name);
 
 }  // namespace bitdb::io
