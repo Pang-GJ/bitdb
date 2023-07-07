@@ -60,6 +60,8 @@ class DB {
   Status LoadDataFiles();
   Status LoadIndexFromDataFiles();
 
+  Status LoadIndexFromHintFile();
+
   Status GetValueByLogRecordPst(data::LogRecordPst* log_record_pst,
                                 const Bytes& key, std::string* value);
 

@@ -77,4 +77,22 @@ uint32_t GetLogRecordCRC(const LogRecord& log_record,
       log_record.value.size());
   return crc32;
 }
+
+std::string EncodeLogRecordPosition(LogRecordPst* pst) {
+  char buffer[K_MAX_VARINT32_LEN + K_MAX_VARINT64_LEN];
+  size_t index = 0;
+  index += EncodeVarint32(buffer + index, pst->fid);
+  index += EncodeVarint64(buffer + index, pst->offset);
+  return std::string{buffer, buffer + index};
+}
+
+LogRecordPst* DecodeLogRecordPosition(const Bytes& bytes) {
+  size_t index = 0;
+  uint32_t fid;
+  uint64_t offset;
+  index += DecodeVarint32(bytes.data() + index, &fid);
+  index += DecodeVarint64(bytes.data() + index, &offset);
+  return new LogRecordPst{.fid = fid, .offset = offset};
+}
+
 }  // namespace bitdb::data

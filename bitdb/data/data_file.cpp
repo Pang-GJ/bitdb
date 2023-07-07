@@ -1,30 +1,31 @@
 #include "bitdb/data/data_file.h"
-#include <cassert>
-#include <cstddef>
-#include <cstdint>
-#include <memory>
-#include <string_view>
+#include "bitdb/common/logger.h"
 #include "bitdb/data/log_record.h"
 #include "bitdb/io/io_interface.h"
 #include "bitdb/status.h"
 #include "bitdb/utils/bytes.h"
-#include "bitdb/common/logger.h"
+#include "bitdb/utils/format.h"
 #include "bitdb/utils/string_utils.h"
 
 namespace bitdb::data {
 
-DataFile::DataFile(uint32_t file_id,
-                   std::unique_ptr<io::IOHandler> io_handler)
+DataFile::DataFile(uint32_t file_id, std::unique_ptr<io::IOHandler> io_handler)
     : file_id(file_id), write_off(0), io_handler(std::move(io_handler)) {}
 
 Status DataFile::OpenDataFile(std::string_view path, uint32_t file_id,
                               std::unique_ptr<DataFile>* data_file_ptr) {
-  // TODO(pangguojian): more check error
   auto file_name = Format("{}/{}{}", path, file_id, K_DATA_FILE_SUFFIX);
-  auto io_handler = io::NewIOHandler(file_name);
-  CHECK_NOT_NULL_STATUS(io_handler);
-  *data_file_ptr = std::make_unique<DataFile>(file_id, std::move(io_handler));
-  return Status::Ok();
+  return NewDataFile(file_name, file_id, data_file_ptr);
+}
+
+Status DataFile::OpenHintFile(std::string_view path,
+                              std::unique_ptr<DataFile>* data_file_ptr) {
+  return NewDataFile(GetHintFileName(path), 0, data_file_ptr);
+}
+
+Status DataFile::OpenMergedFile(std::string_view path,
+                                std::unique_ptr<DataFile>* data_file_ptr) {
+  return NewDataFile(GetMergedFileName(path), 0, data_file_ptr);
 }
 
 Status DataFile::ReadLogRecord(uint64_t offset, LogRecord* log_record,
@@ -106,6 +107,15 @@ Status DataFile::Sync() {
   return Status::Ok();
 }
 
+Status DataFile::NewDataFile(std::string_view file_name, uint32_t file_id,
+                             std::unique_ptr<DataFile>* data_file_ptr) {
+  CHECK_NOT_NULL_STATUS(data_file_ptr);
+  auto io_handler = io::NewIOHandler(file_name);
+  CHECK_NOT_NULL_STATUS(io_handler);
+  *data_file_ptr = std::make_unique<DataFile>(file_id, std::move(io_handler));
+  return Status::Ok();
+}
+
 std::string DataFile::ReadNBytes(int64_t n, int64_t offset) {
   char buffer[n + 1];
   buffer[n] = '\n';
@@ -116,4 +126,21 @@ std::string DataFile::ReadNBytes(int64_t n, int64_t offset) {
   }
   return {buffer, buffer + res};
 }
+
+std::string GetHintFileName(std::string_view path) {
+  return Format("{}/{}", path, K_HINT_FILE_NAME);
+}
+
+std::string GetMergedFileName(std::string_view path) {
+  return Format("{}/{}", path, K_MERGED_FILE_NAME);
+}
+
+Status WriteHintRecord(DataFile* hint_file, const Bytes& key,
+                       LogRecordPst* pst) {
+  LogRecord log_record{.key = key.data(),
+                       .value = EncodeLogRecordPosition(pst)};
+  auto encode_bytes = EncodeLogRecord(log_record);
+  return hint_file->Write(encode_bytes);
+}
+
 }  // namespace bitdb::data

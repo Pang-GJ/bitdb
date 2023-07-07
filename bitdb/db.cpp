@@ -272,7 +272,7 @@ Status DB::LoadIndexFromDataFiles() {
       return Status::Ok();
     };
 
-    int64_t offset = 0;
+    uint64_t offset = 0;
     while (true) {
       data::LogRecord log_record;
       size_t sz;
@@ -320,6 +320,26 @@ Status DB::LoadIndexFromDataFiles() {
   this->transaction_id_ = current_tran_id;
   // 清空 file_ids
   file_ids_->clear();
+  return Status::Ok();
+}
+
+Status DB::LoadIndexFromHintFile() {
+  auto hint_file_name = data::GetHintFileName(options_.dir_path);
+  std::unique_ptr<data::DataFile> hint_file;
+  CHECK_OK(data::DataFile::OpenHintFile(options_.dir_path, &hint_file));
+  uint64_t offset = 0;
+  while (true) {
+    data::LogRecord log_record;
+    size_t sz;
+    CHECK_OK(hint_file->ReadLogRecord(offset, &log_record, &sz));
+    if (sz == 0) {
+      break;
+    }
+    auto* pst = data::DecodeLogRecordPosition(log_record.value);
+    CHECK_TRUE(index_->Put(log_record.key, pst),
+               Format("fail to put index of key: {}", log_record.key));
+    offset += sz;
+  }
   return Status::Ok();
 }
 

@@ -8,8 +8,8 @@ namespace bitdb::data {
 
 // 数据内存索引，描述数据在磁盘上的位置
 struct LogRecordPst {
-  uint32_t fid;    // NOLINT
-  int64_t offset;  // NOLINT
+  uint32_t fid;     // NOLINT
+  uint64_t offset;  // NOLINT
 
   LogRecordPst& operator=(const LogRecordPst& other) = default;
 };
@@ -95,4 +95,9 @@ uint32_t GetLogRecordCRC(const LogRecord& log_record,
                          const std::string& header);
 
 constexpr size_t K_CRC_SIZE = 4;
+
+std::string EncodeLogRecordPosition(LogRecordPst* pst);
+
+LogRecordPst* DecodeLogRecordPosition(const Bytes& bytes);
+
 }  // namespace bitdb::data
