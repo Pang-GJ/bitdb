@@ -138,6 +138,8 @@ struct LogLine {
 
 class ConsoleWriter {
  public:
+  ~ConsoleWriter() { ::fsync(STDOUT_FILENO); }
+
   void Write(const LogLine& log_line) {
     std::string log_data = Format(
         "[{}] {} {} {}-{}({}): {}\n", LogLevelToColorFulString(log_line.level),
@@ -212,6 +214,7 @@ class FileWriter {
   ConsoleWriter console_writer_;
 };
 
+// TODO(pangguojian): Logger has bug, seems like only first log will be flushed
 class Logger {
  public:
   Logger() : buffer_(512), file_writer_("./log", 32, true) {

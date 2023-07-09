@@ -5,6 +5,7 @@
 #include "bitdb/status.h"
 #include "bitdb/utils/bytes.h"
 #include "bitdb/utils/format.h"
+#include "bitdb/utils/os_utils.h"
 #include "bitdb/utils/string_utils.h"
 
 namespace bitdb::data {
@@ -14,8 +15,7 @@ DataFile::DataFile(uint32_t file_id, std::unique_ptr<io::IOHandler> io_handler)
 
 Status DataFile::OpenDataFile(std::string_view path, uint32_t file_id,
                               std::unique_ptr<DataFile>* data_file_ptr) {
-  auto file_name = Format("{}/{}{}", path, file_id, K_DATA_FILE_SUFFIX);
-  return NewDataFile(file_name, file_id, data_file_ptr);
+  return NewDataFile(GetDataFileName(path, file_id), file_id, data_file_ptr);
 }
 
 Status DataFile::OpenHintFile(std::string_view path,
@@ -127,6 +127,10 @@ std::string DataFile::ReadNBytes(int64_t n, int64_t offset) {
   return {buffer, buffer + res};
 }
 
+std::string GetDataFileName(std::string_view path, uint32_t file_id) {
+  return Format("{}/{}{}", path, file_id, K_DATA_FILE_SUFFIX);
+}
+
 std::string GetHintFileName(std::string_view path) {
   return Format("{}/{}", path, K_HINT_FILE_NAME);
 }
@@ -135,8 +139,13 @@ std::string GetMergedFileName(std::string_view path) {
   return Format("{}/{}", path, K_MERGED_FILE_NAME);
 }
 
+std::string GetMergenceDirectory(std::string db_path) {
+  return Format("{}/{}", db_path,
+                PathBase(db_path).append(K_MERGENCE_FOLDER_SUFFIX));
+}
+
 Status WriteHintRecord(DataFile* hint_file, const Bytes& key,
-                       LogRecordPst* pst) {
+                       const LogRecordPst& pst) {
   LogRecord log_record{.key = key.data(),
                        .value = EncodeLogRecordPosition(pst)};
   auto encode_bytes = EncodeLogRecord(log_record);

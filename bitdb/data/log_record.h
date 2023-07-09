@@ -96,7 +96,7 @@ uint32_t GetLogRecordCRC(const LogRecord& log_record,
 
 constexpr size_t K_CRC_SIZE = 4;
 
-std::string EncodeLogRecordPosition(LogRecordPst* pst);
+std::string EncodeLogRecordPosition(const LogRecordPst& pst);
 
 LogRecordPst* DecodeLogRecordPosition(const Bytes& bytes);
 

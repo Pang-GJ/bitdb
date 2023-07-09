@@ -1,8 +1,10 @@
 #pragma once
 #include <dirent.h>
 #include <sys/stat.h>
+#include <unistd.h>
 #include <cerrno>
 #include <cstring>
+#include <string>
 #include <string_view>
 #include "bitdb/common/logger.h"
 #include "bitdb/utils/string_utils.h"
@@ -86,6 +88,19 @@ inline void RemoveDir(const std::string& dir_name) {
     LOG_ERROR("Failed to remove directory: {}", dir_name);
     exit(-1);
   }
+}
+
+inline std::string PathBase(std::string_view full_path) {
+  auto last_slash = full_path.find_last_of('/');
+  if (last_slash != std::string::npos) {
+    return full_path.substr(last_slash + 1).data();
+  }
+  // 如果没有 '/'，则 full_path 就是文件名
+  return full_path.data();
+}
+
+inline bool IsFileExist(std::string_view file_path) {
+  return access(file_path.data(), F_OK) == 0;
 }
 
 }  // namespace bitdb

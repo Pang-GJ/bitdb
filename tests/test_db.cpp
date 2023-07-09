@@ -101,12 +101,14 @@ TEST_CASE("DB Put") {
   CHECK_EQ(true, status.IsOk());
   CHECK_NE(nullptr, db);
 
-  auto val2 = GetRandomValue(128);
-  status = db->Put(GetTestKey(55), val2);
-  CHECK_EQ(true, status.IsOk());
-  status = db->Get(GetTestKey(55), &val_got);
-  CHECK_EQ(true, status.IsOk());
-  CHECK_EQ(val2, val_got);
+  for (int i = 0; i < 100000; ++i) {
+    auto val2 = GetRandomValue(128);
+    status = db->Put(GetTestKey(i), val2);
+    CHECK_EQ(true, status.IsOk());
+    status = db->Get(GetTestKey(i), &val_got);
+    CHECK_EQ(true, status.IsOk());
+    CHECK_EQ(val2, val_got);
+  }
 }
 
 TEST_CASE("DB Get") {
@@ -218,7 +220,7 @@ TEST_CASE("DB WriteBatch") {
   bitdb::DB* db = nullptr;
   defer { DestroyDB(db); };
   auto options = bitdb::DefaultOptions();
-  options.dir_path = "/tmp/bitdb-del";
+  options.dir_path = "/tmp/bitdb-wb";
   options.data_file_size = 64 * 1024 * 1024;
   options.index_type = bitdb::index::SkipListIndex;
   auto status = bitdb::DB::Open(options, &db);

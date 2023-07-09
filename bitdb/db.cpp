@@ -1,6 +1,7 @@
 #include "bitdb/db.h"
 #include <dirent.h>
 #include <sys/types.h>
+#include <algorithm>
 #include <cstdint>
 #include <memory>
 #include <mutex>
@@ -16,6 +17,7 @@
 #include "bitdb/iterator.h"
 #include "bitdb/options.h"
 #include "bitdb/status.h"
+#include "bitdb/utils/defer.h"
 #include "bitdb/utils/os_utils.h"
 #include "bitdb/utils/string_utils.h"
 
@@ -24,7 +26,7 @@ DB::DB(Options options)
     : options_(std::move(options)),
       index_(index::NewIndexer(options_.index_type)) {}
 
-Status DB::Open(const Options& options, DB** db_ptr) {
+Status DB::Open(const Options& options, DB** db_ptr, bool merge_after_open) {
   *db_ptr = nullptr;
   // 检查配置项
   CHECK_OK(CheckOptions(options));
@@ -32,8 +34,13 @@ Status DB::Open(const Options& options, DB** db_ptr) {
   CHECK_TRUE(CheckOrCreateDirectory(options.dir_path));
   *db_ptr = new DB(options);
   auto& db = **db_ptr;
+  CHECK_OK(db.LoadMergenceFiles());
   CHECK_OK(db.LoadDataFiles());
+  CHECK_OK(db.LoadIndexFromHintFile());
   CHECK_OK(db.LoadIndexFromDataFiles());
+  if (merge_after_open) {
+    CHECK_OK(db.Merge());
+  }
   return Status::Ok();
 }
 
@@ -157,6 +164,103 @@ Status DB::Fold(const UserOperationFunc& fn) {
   return Status::Ok();
 }
 
+Status DB::Merge() {
+  if (this->active_file_ == nullptr) {
+    return Status::Ok();
+  }
+  std::unique_lock lock(this->rwlock_);
+
+  // 同时只能处于一个 merge 过程中
+  if (is_merging_) {
+    return Status::CheckError(
+        "DB::Merge",
+        "merging is in process, one time for one merging, try again later");
+  }
+  is_merging_ = true;
+  defer { is_merging_ = false; };
+
+  // sync 当前的 activate data file
+  // CHECK_OK(Sync()); // 不能用这个，会死锁，但又没有递归读写锁
+  CHECK_OK(this->active_file_->Sync());
+
+  // 现在的 activate data file 可以设置为不是活跃的了
+  // 当当前的活跃文件转换为旧的活跃文件
+  auto non_merged_file_id = active_file_->file_id;
+  older_files_[active_file_->file_id] = std::move(active_file_);
+  // 打开新的活跃文件
+  CHECK_OK(NewActiveDataFile());
+
+  using DataFilePtr = std::unique_ptr<data::DataFile>*;
+  std::vector<DataFilePtr> files_to_be_merged;
+  for (auto& pair : older_files_) {
+    files_to_be_merged.emplace_back(&pair.second);
+  }
+  // 后面的部分不会有冲突了，解锁
+  // lock.unlock();
+
+  std::sort(files_to_be_merged.begin(), files_to_be_merged.end(),
+            [](const DataFilePtr a, const DataFilePtr b) {
+              return (*a)->file_id < (*b)->file_id;
+            });
+
+  auto merge_dir = data::GetMergenceDirectory(options_.dir_path);
+  // 去除之前 merge 留下的目录
+  if (IsFileExist(merge_dir)) {
+    RemoveDir(merge_dir);
+  }
+  CHECK_TRUE(CheckOrCreateDirectory(merge_dir));
+
+  auto mergence_options = options_;
+  mergence_options.dir_path = merge_dir;
+  mergence_options.is_sync_write = false;
+  // temp DB
+  // 它的作用其实是相当于新建一个文件夹，用来暂存合并后的数据文件
+  DB* temp_db = nullptr;
+  CHECK_OK(DB::Open(mergence_options, &temp_db));
+  CHECK_NOT_NULL_STATUS(temp_db);
+
+  // open hint file
+  std::unique_ptr<data::DataFile> hint_file;
+  CHECK_OK(data::DataFile::OpenHintFile(merge_dir, &hint_file));
+
+  for (const auto* file_ptr : files_to_be_merged) {
+    uint64_t offset = 0;
+    while (true) {
+      data::LogRecord log_record;
+      size_t sz;
+      CHECK_OK((*file_ptr)->ReadLogRecord(offset, &log_record, &sz));
+      if (sz == 0) {
+        break;
+      }
+      auto real_key = data::DecodeLogRecordWithTranID(log_record.key).first;
+      auto* pst = this->index_->Get(real_key);
+      if (pst != nullptr && pst->fid == (*file_ptr)->file_id &&
+          pst->offset == offset) {
+        log_record.key =
+            data::EncodeLogRecordWithTranID(real_key, data::K_NON_TRAN_ID);
+        data::LogRecordPst tmp_pst;
+        CHECK_OK(temp_db->AppendLogRecord(log_record, &tmp_pst));
+        // 把当前位置写到 hint file 中
+        CHECK_OK(data::WriteHintRecord(hint_file.get(), real_key, tmp_pst));
+      }
+      offset += sz;
+    }
+  }
+
+  // sync the hint file and the temp db
+  CHECK_OK(hint_file->Sync());
+  CHECK_OK(temp_db->Sync());
+  CHECK_OK(DB::Close(&temp_db));
+
+  std::unique_ptr<data::DataFile> merged_file = nullptr;
+  CHECK_OK(data::DataFile::OpenMergedFile(merge_dir, &merged_file));
+  data::LogRecord merge_logrecord{.key = data::K_MERGED_LOG_RECORD_KEY.data(),
+                                  .value = std::to_string(non_merged_file_id)};
+  CHECK_OK(merged_file->Write(data::EncodeLogRecord(merge_logrecord)));
+  CHECK_OK(merged_file->Sync());
+  return Status::Ok();
+}
+
 Status DB::AppendLogRecord(const data::LogRecord& log_record,
                            data::LogRecordPst* pst) {
   if (pst == nullptr) {
@@ -239,12 +343,74 @@ Status DB::LoadDataFiles() {
       older_files_[fid] = std::move(data_file);
     }
   }
+  next_file_id_ = active_file_ != nullptr ? active_file_->file_id + 1 : 0;
+  return Status::Ok();
+}
+
+Status DB::LoadMergenceFiles() {
+  auto merge_dir = data::GetMergenceDirectory(options_.dir_path);
+  DIR* dir_ptr;
+  struct dirent* dp;
+  dir_ptr = opendir(merge_dir.c_str());
+  if (dir_ptr == nullptr) {
+    return Status::Ok("DB::LoadMergenceFiles", "have no mergence files");
+  }
+  defer { RemoveDir(merge_dir); };
+  bool mergence_finished = false;
+  std::vector<std::string> merged_file_names;
+  while ((dp = readdir(dir_ptr)) != nullptr) {
+    if (strcmp(dp->d_name, data::K_MERGED_FILE_NAME.data()) == 0) {
+      mergence_finished = true;
+    }
+    merged_file_names.emplace_back(dp->d_name);
+  }
+  if (!mergence_finished) {
+    return Status::Ok("DB::LoadMergenceFiles", "mergence is not finished");
+  }
+
+  uint32_t non_merged_file_id;
+  CHECK_OK(GetNonMergedFileID(merge_dir, &non_merged_file_id));
+  for (uint32_t file_id = 0; file_id < non_merged_file_id; ++file_id) {
+    // 删除已经合并的文件
+    auto file_path = data::GetDataFileName(options_.dir_path, file_id);
+    RemoveFile(file_path);
+  }
+
+  // 把 temp_db 目录的数据文件移动到数据目录
+  for (const auto& file_name : merged_file_names) {
+    auto src_path = Format("{}/{}", merge_dir, file_name);
+    auto dst_path = Format("{}/{}", options_.dir_path, file_name);
+    CHECK_TRUE(std::rename(src_path.c_str(), dst_path.c_str()) == 0);
+  }
+
+  return Status::Ok();
+}
+
+Status DB::GetNonMergedFileID(std::string_view directory, uint32_t* file_id) {
+  std::unique_ptr<data::DataFile> merged_file = nullptr;
+  CHECK_OK(data::DataFile::OpenMergedFile(directory, &merged_file));
+  data::LogRecord log_record;
+  size_t sz;
+  CHECK_OK(merged_file->ReadLogRecord(0, &log_record, &sz));
+  *file_id = std::stoi(log_record.value);
   return Status::Ok();
 }
 
 Status DB::LoadIndexFromDataFiles() {
   if (file_ids_->empty()) {
     return Status::Ok();
+  }
+
+  // 判断是否merge过
+  bool has_merged = false;
+  uint32_t non_merged_file_id = 0;
+  auto merged_file_path =
+      Format("{}/{}", options_.dir_path, data::K_MERGED_FILE_NAME);
+  if (IsFileExist(merged_file_path)) {
+    uint32_t file_id;
+    CHECK_OK(GetNonMergedFileID(options_.dir_path, &file_id));
+    has_merged = true;
+    non_merged_file_id = file_id;
   }
 
   uint32_t current_tran_id = data::K_NON_TRAN_ID;
@@ -254,8 +420,12 @@ Status DB::LoadIndexFromDataFiles() {
   const auto& sz = file_ids_->size();
   for (size_t i = 0; i < sz; ++i) {
     const auto& fid = file_ids_->at(i);
-    std::unique_ptr<data::DataFile>* data_file_ptr;
+    if (has_merged && fid < non_merged_file_id) {
+      // merged 过了，则之前的部分不需要加载，可以用 hint file
+      continue;
+    }
 
+    std::unique_ptr<data::DataFile>* data_file_ptr;
     if (fid == active_file_->file_id) {
       data_file_ptr = &active_file_;
     } else {
@@ -325,6 +495,9 @@ Status DB::LoadIndexFromDataFiles() {
 
 Status DB::LoadIndexFromHintFile() {
   auto hint_file_name = data::GetHintFileName(options_.dir_path);
+  if (!IsFileExist(hint_file_name)) {
+    return Status::Ok("DB::LoadIndexFromHintFile", "has no hint file");
+  }
   std::unique_ptr<data::DataFile> hint_file;
   CHECK_OK(data::DataFile::OpenHintFile(options_.dir_path, &hint_file));
   uint64_t offset = 0;

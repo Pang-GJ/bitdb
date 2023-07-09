@@ -78,11 +78,11 @@ uint32_t GetLogRecordCRC(const LogRecord& log_record,
   return crc32;
 }
 
-std::string EncodeLogRecordPosition(LogRecordPst* pst) {
+std::string EncodeLogRecordPosition(const LogRecordPst& pst) {
   char buffer[K_MAX_VARINT32_LEN + K_MAX_VARINT64_LEN];
   size_t index = 0;
-  index += EncodeVarint32(buffer + index, pst->fid);
-  index += EncodeVarint64(buffer + index, pst->offset);
+  index += EncodeVarint32(buffer + index, pst.fid);
+  index += EncodeVarint64(buffer + index, pst.offset);
   return std::string{buffer, buffer + index};
 }
 

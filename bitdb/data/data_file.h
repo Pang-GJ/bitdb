@@ -12,6 +12,8 @@ namespace bitdb::data {
 constexpr std::string_view K_DATA_FILE_SUFFIX = ".data";
 constexpr std::string_view K_HINT_FILE_NAME = "hint-index";
 constexpr std::string_view K_MERGED_FILE_NAME = "merged";
+constexpr std::string_view K_MERGENCE_FOLDER_SUFFIX = "-merge";
+constexpr std::string_view K_MERGED_LOG_RECORD_KEY = "merged";
 
 struct DataFile {
   uint32_t file_id;                           // NOLINT
@@ -47,10 +49,13 @@ struct DataFile {
   std::string ReadNBytes(int64_t n, int64_t offset);
 };
 
+std::string GetDataFileName(std::string_view path, uint32_t file_id);
 std::string GetHintFileName(std::string_view path);
 std::string GetMergedFileName(std::string_view path);
 
+std::string GetMergenceDirectory(std::string db_path);
+
 Status WriteHintRecord(DataFile* hint_file, const Bytes& key,
-                       LogRecordPst* pst);
+                       const LogRecordPst& pst);
 
 }  // namespace bitdb::data

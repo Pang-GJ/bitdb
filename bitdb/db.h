@@ -23,7 +23,8 @@ class DB {
    * @param options 配置项
    * @return Status
    */
-  static Status Open(const Options& options, DB** db_ptr);
+  static Status Open(const Options& options, DB** db_ptr,
+                     bool merge_after_open = true);
   static Status Close(DB** db_ptr);
 
   Status Put(const Bytes& key, const Bytes& value);
@@ -49,6 +50,13 @@ class DB {
       std::function<bool(const std::string&, const std::string&)>;
   Status Fold(const UserOperationFunc& fn);
 
+  /**
+   * @brief Merge 会去除无效的 data files，并且生成 hint file
+   *
+   * @return Status
+   */
+  Status Merge();
+
   std::string GetDirPath() const { return options_.dir_path; }
   size_t GetOlderDataFileNum() const { return older_files_.size(); }
 
@@ -58,6 +66,18 @@ class DB {
   Status NewActiveDataFile();
 
   Status LoadDataFiles();
+
+  Status LoadMergenceFiles();
+
+  /**
+   * @brief Get the ID of the data file that is not merged
+   *
+   * @param directory
+   * @param file_id
+   * @return Status
+   */
+  Status GetNonMergedFileID(std::string_view directory, uint32_t* file_id);
+
   Status LoadIndexFromDataFiles();
 
   Status LoadIndexFromHintFile();
@@ -76,6 +96,7 @@ class DB {
   std::unique_ptr<std::vector<uint32_t>> file_ids_;  // 仅在加载文件时使用
   uint32_t next_file_id_{0};  // 仅在新建active data file 时使用
   uint32_t transaction_id_{0};
+  bool is_merging_{false};
 };
 
 }  // namespace bitdb
