@@ -9,7 +9,7 @@
 
 namespace bitdb::data {
 
-constexpr std::string_view K_DATA_FILE_SUFFIX = ".data";
+constexpr std::string_view K_DATA_FILE_SUFFIX = ".bitdb-data";
 constexpr std::string_view K_HINT_FILE_NAME = "hint-index";
 constexpr std::string_view K_MERGED_FILE_NAME = "merged";
 constexpr std::string_view K_MERGENCE_FOLDER_SUFFIX = "-merge";
