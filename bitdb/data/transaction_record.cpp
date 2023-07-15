@@ -4,9 +4,9 @@
 
 namespace bitdb::data {
 
-std::string EncodeLogRecordWithTranID(const Bytes& key, uint32_t tran_id) {
+std::string EncodeLogRecordWithTxnID(const Bytes& key, uint64_t txn_id) {
   char buf[K_MAX_VARINT32_LEN];
-  auto encode_len = EncodeVarint32(buf, tran_id);
+  auto encode_len = EncodeVarint64(buf, txn_id);
   std::string encoded_key;
   encoded_key.resize(encode_len);
   for (int i = 0; i < encode_len; ++i) {
@@ -16,12 +16,12 @@ std::string EncodeLogRecordWithTranID(const Bytes& key, uint32_t tran_id) {
   return encoded_key;
 }
 
-std::pair<std::string, uint32_t> DecodeLogRecordWithTranID(Bytes key) {
+std::pair<std::string, uint64_t> DecodeLogRecordWithTxnID(Bytes key) {
   const auto* buf = key.data();
-  uint32_t tran_id = 0;
-  auto len = DecodeVarint32(buf, &tran_id);
+  uint64_t txn_id = 0;
+  auto len = DecodeVarint64(buf, &txn_id);
   key.RemovePrefix(len);
-  return {key.ToString(), tran_id};
+  return {key.ToString(), txn_id};
 }
 
 }  // namespace bitdb::data

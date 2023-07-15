@@ -95,7 +95,7 @@ class DB {
   std::unique_ptr<index::Indexer> index_;
   std::unique_ptr<std::vector<uint32_t>> file_ids_;  // 仅在加载文件时使用
   uint32_t next_file_id_{0};  // 仅在新建active data file 时使用
-  uint32_t transaction_id_{0};
+  uint64_t txn_id_{0};
   bool is_merging_{false};
 };
 

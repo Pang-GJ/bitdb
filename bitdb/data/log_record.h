@@ -17,8 +17,8 @@ struct LogRecordPst {
 enum LogRecordType : int8_t {
   NormalLogRecord = 1,
   DeletedLogRecord,
-  TransactionFinishedLogRecord  // // TransactionFinishedLogRecord indicates
-                                // that a Transaction is finished
+  TxnFinishedLogRecord  // // TxnFinishedLogRecord indicates
+                        // that a Transaction is finished
 };
 
 constexpr size_t K_LOG_RECORD_TYPE_SIZE = 1;

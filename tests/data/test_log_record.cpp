@@ -28,13 +28,13 @@ TEST_CASE("encode and decode log_record") {
 
 std::string GetTestKey(int i) { return bitdb::Format("bitdb-key-{}", i); }
 
-TEST_CASE("encode and decode log_record with transaction id") {
+TEST_CASE("encode and decode log_record with txnsaction id") {
   for (size_t i = 0; i < 1000000; ++i) {
     std::string real_key = GetTestKey(i);
-    auto encode_key = bitdb::data::EncodeLogRecordWithTranID(real_key, i);
-    auto [decode_real_key, decode_tran_id] =
-        bitdb::data::DecodeLogRecordWithTranID(encode_key);
-    CHECK_EQ(i, decode_tran_id);
+    auto encode_key = bitdb::data::EncodeLogRecordWithTxnID(real_key, i);
+    auto [decode_real_key, decode_txn_id] =
+        bitdb::data::DecodeLogRecordWithTxnID(encode_key);
+    CHECK_EQ(i, decode_txn_id);
     CHECK_EQ(decode_real_key, real_key);
   }
 }

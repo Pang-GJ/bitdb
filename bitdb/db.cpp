@@ -59,7 +59,7 @@ Status DB::Put(const Bytes& key, const Bytes& value) {
   }
 
   data::LogRecord log_record{
-      data::EncodeLogRecordWithTranID(key, data::K_NON_TRAN_ID), value.data(),
+      data::EncodeLogRecordWithTxnID(key, data::K_NON_TXN_ID), value.data(),
       data::NormalLogRecord};
   auto* pst = new data::LogRecordPst;
   std::unique_lock lock(rwlock_);
@@ -98,7 +98,7 @@ Status DB::Delete(const Bytes& key) {
                       Format("key: {} don't exist.", key.ToString()));
   }
   data::LogRecord log_record{
-      .key = data::EncodeLogRecordWithTranID(key, data::K_NON_TRAN_ID),
+      .key = data::EncodeLogRecordWithTxnID(key, data::K_NON_TXN_ID),
       .type = data::DeletedLogRecord};
   CHECK_OK(AppendLogRecord(log_record, pst));
   CHECK_TRUE(index_->Delete(key, &pst),
@@ -232,12 +232,12 @@ Status DB::Merge() {
       if (sz == 0) {
         break;
       }
-      auto real_key = data::DecodeLogRecordWithTranID(log_record.key).first;
+      auto real_key = data::DecodeLogRecordWithTxnID(log_record.key).first;
       auto* pst = this->index_->Get(real_key);
       if (pst != nullptr && pst->fid == (*file_ptr)->file_id &&
           pst->offset == offset) {
         log_record.key =
-            data::EncodeLogRecordWithTranID(real_key, data::K_NON_TRAN_ID);
+            data::EncodeLogRecordWithTxnID(real_key, data::K_NON_TXN_ID);
         data::LogRecordPst tmp_pst;
         CHECK_OK(temp_db->AppendLogRecord(log_record, &tmp_pst));
         // 把当前位置写到 hint file 中
@@ -413,9 +413,8 @@ Status DB::LoadIndexFromDataFiles() {
     non_merged_file_id = file_id;
   }
 
-  uint32_t current_tran_id = data::K_NON_TRAN_ID;
-  ds::TreeMap<uint32_t, std::vector<data::TransactionRecord>>
-      transaction_records;
+  uint64_t current_txn_id = data::K_NON_TXN_ID;
+  ds::TreeMap<uint32_t, std::vector<data::TxnRecord>> txn_records;
   // 遍历所有的文件id，处理其中的日志记录
   const auto& sz = file_ids_->size();
   for (size_t i = 0; i < sz; ++i) {
@@ -451,32 +450,31 @@ Status DB::LoadIndexFromDataFiles() {
         break;
       }
 
-      auto [real_key, tran_id] =
-          data::DecodeLogRecordWithTranID(log_record.key);
+      auto [real_key, txn_id] = data::DecodeLogRecordWithTxnID(log_record.key);
 
-      if (tran_id == data::K_NON_TRAN_ID) {
+      if (txn_id == data::K_NON_TXN_ID) {
         auto* pst = log_record.type == data::DeletedLogRecord
                         ? nullptr
                         : new data::LogRecordPst{.fid = fid, .offset = offset};
         CHECK_OK(update_index(real_key, log_record.type, pst));
       } else {
-        if (log_record.type == data::TransactionFinishedLogRecord) {
-          for (const auto& tran_record : transaction_records[tran_id]) {
-            CHECK_OK(update_index(tran_record.log_record.key,
-                                  tran_record.log_record.type,
-                                  tran_record.pst));
+        if (log_record.type == data::TxnFinishedLogRecord) {
+          for (const auto& txn_record : txn_records[txn_id]) {
+            CHECK_OK(update_index(txn_record.log_record.key,
+                                  txn_record.log_record.type,
+                                  txn_record.pst));
           }
-          transaction_records.erase(tran_id);
+          txn_records.erase(txn_id);
         } else {
           log_record.key = real_key;
-          data::TransactionRecord tran_record{
+          data::TxnRecord txn_record{
               .log_record = log_record,
               .pst = new data::LogRecordPst{.fid = fid, .offset = offset}};
-          transaction_records[tran_id].emplace_back(tran_record);
+          txn_records[txn_id].emplace_back(txn_record);
         }
       }
-      if (tran_id > current_tran_id) {
-        current_tran_id = tran_id;
+      if (txn_id > current_txn_id) {
+        current_txn_id = txn_id;
       }
 
       offset += sz;
@@ -487,7 +485,7 @@ Status DB::LoadIndexFromDataFiles() {
       active_file_->write_off = offset;
     }
   }
-  this->transaction_id_ = current_tran_id;
+  this->txn_id_ = current_txn_id;
   // 清空 file_ids
   file_ids_->clear();
   return Status::Ok();

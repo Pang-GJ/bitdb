@@ -48,17 +48,17 @@ Status WriteBatch::Commit() {
   }
   ds::TreeMap<std::string, data::LogRecordPst*> positions;
   std::unique_lock db_lock(db_->rwlock_);
-  auto tran_id = ++db_->transaction_id_;
+  auto txn_id = ++db_->txn_id_;
   for (auto& [key, log_record] : this->pending_writes_) {
-    log_record.key = data::EncodeLogRecordWithTranID(log_record.key, tran_id);
+    log_record.key = data::EncodeLogRecordWithTxnID(log_record.key, txn_id);
     auto* pst = new data::LogRecordPst;
     CHECK_OK(db_->AppendLogRecord(log_record, pst));
     positions.emplace(key, pst);
   }
   // 增加一个标志事务完成的 logrecord
-  data::LogRecord finish_record{.key = data::EncodeLogRecordWithTranID(
-                                    data::K_TRANSACTION_FINISHED_KEY, tran_id),
-                                .type = data::TransactionFinishedLogRecord};
+  data::LogRecord finish_record{.key = data::EncodeLogRecordWithTxnID(
+                                    data::K_TXN_FINISHED_KEY, txn_id),
+                                .type = data::TxnFinishedLogRecord};
   auto* finish_pst = new data::LogRecordPst;
   CHECK_OK(db_->AppendLogRecord(finish_record, finish_pst));
   // update in-memory index
