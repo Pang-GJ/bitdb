@@ -1,5 +1,6 @@
 add_requires("nanobench", {system = false})
 add_requires("spdlog", {system = false})
+add_requires("leveldb", {system = false})
 
 target("benchmark")
   set_kind("binary")
@@ -14,3 +15,11 @@ target("bench_log")
   add_files("$(projectdir)/benchmark/bench_log.cpp")
   add_cxxflags("-Ofast")
   add_packages("nanobench", "spdlog")
+
+target("benchmark_leveldb")
+  set_kind("binary")
+  add_deps("bitdb")
+  add_files("$(projectdir)/benchmark/benchmark_leveldb.cpp")
+  add_cxxflags("-Ofast")
+  add_packages("nanobench", "leveldb")
+

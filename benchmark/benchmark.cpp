@@ -37,13 +37,13 @@ int main() {
   defer { DestroyDB(db); };
   auto options = bitdb::DefaultOptions();
   options.data_file_size = 512 * 1024 * 1024;
-  options.index_type = bitdb::index::TreeMapIndex;
+  options.index_type = bitdb::index::SkipListIndex;
   auto status = bitdb::DB::Open(options, &db);
   assert(status.IsOk());
   assert(db);
 
   ankerl::nanobench::Bench().run("db put", [&] {
-    for (auto i = 0; i < 1000000; ++i) {
+    for (auto i = 0; i < 10000000; ++i) {
       status = db->Put(GetTestKey(i), GetRandomValue(128));
       assert(status.IsOk());
     }
@@ -51,7 +51,7 @@ int main() {
 
   ankerl::nanobench::Bench().run("db get", [&] {
     std::string val;
-    for (auto i = 0; i < 1000000; ++i) {
+    for (auto i = 0; i < 10000000; ++i) {
       status = db->Get(GetTestKey(i), &val);
       assert(status.IsOk());
     }
