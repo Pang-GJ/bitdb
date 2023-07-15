@@ -56,9 +56,9 @@ Status WriteBatch::Commit() {
     positions.emplace(key, pst);
   }
   // 增加一个标志事务完成的 logrecord
-  data::LogRecord finish_record{.key = data::EncodeLogRecordWithTxnID(
-                                    data::K_TXN_FINISHED_KEY, txn_id),
-                                .type = data::TxnFinishedLogRecord};
+  data::LogRecord finish_record{
+      .key = data::EncodeLogRecordWithTxnID(data::K_TXN_FINISHED_KEY, txn_id),
+      .type = data::TxnFinishedLogRecord};
   auto* finish_pst = new data::LogRecordPst;
   CHECK_OK(db_->AppendLogRecord(finish_record, finish_pst));
   // update in-memory index
@@ -70,6 +70,22 @@ Status WriteBatch::Commit() {
       CHECK_TRUE(db_->index_->Delete(key, &pst));
     }
   }
+  this->committed_ = true;
+  return Status::Ok();
+}
+
+Status WriteBatch::Rollback() {
+  if (this->committed_) {
+    return Status::CheckError(
+        "WriteBatch::Rollback()",
+        "WriteBatch has been commited, could not rollback.");
+  }
+  if (this->rollbacked_) {
+    return Status::CheckError("WriteBatch::Rollback()",
+                              "WriteBatch has been rollbaked.");
+  }
+  this->pending_writes_.clear();
+  this->rollbacked_ = true;
   return Status::Ok();
 }
 

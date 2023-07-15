@@ -17,12 +17,15 @@ class WriteBatch {
   Status Put(const Bytes& key, const Bytes& value);
   Status Delete(const Bytes& key);
   Status Commit();
+  Status Rollback();
 
  private:
   std::mutex mtx_;
   DB* db_;
   WriteBatchOptions options_;
   ds::TreeMap<std::string, data::LogRecord> pending_writes_;
+  bool committed_{false};
+  bool rollbacked_{false};
 };
 
 }  // namespace bitdb
