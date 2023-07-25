@@ -23,3 +23,8 @@ target("benchmark_leveldb")
   add_cxxflags("-Ofast")
   add_packages("nanobench", "leveldb")
 
+target("perf_debug")
+  set_kind("binary")
+  add_deps("bitdb")
+  add_files("$(projectdir)/benchmark/perf_debug.cpp")
+  add_cxxflags("-Ofast")
