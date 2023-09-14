@@ -1,7 +1,7 @@
 #include <iostream>
 #include "bitdb/common/logger.h"
-#include "bitdb/utils/format.h"
-#include "bitdb/utils/string_utils.h"
+#include "bitdb/common/format.h"
+#include "bitdb/common/string_utils.h"
 #define DOCTEST_CONFIG_IMPLEMENT_WITH_MAIN
 #include <doctest/doctest.h>
 

@@ -1,8 +1,8 @@
 #define DOCTEST_CONFIG_IMPLEMENT_WITH_MAIN
 #include <doctest/doctest.h>
-#include "luce/codec/serializer.h"
-#include "luce/net/rpc_all.h"
-using namespace codec;  // NOLINT
+#include "bitdb/codec/serializer.h"
+#include "bitdb/net/rpc_all.h"
+using namespace bitdb::codec;  // NOLINT
 
 // 类 A
 class A {

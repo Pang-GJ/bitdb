@@ -1,6 +1,6 @@
 #define DOCTEST_CONFIG_IMPLEMENT_WITH_MAIN
 #include <doctest/doctest.h>
-#include "luce/common/logger.h"
+#include "bitdb/common/logger.h"
 
 TEST_CASE("test LOG_INFO") {
   LOG_INFO("this is a info, {}, {}", "hello", "INFO");

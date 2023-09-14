@@ -1,8 +1,8 @@
 #include <iostream>
 #include <sstream>
 #include <thread>
-#include "luce/common/logger.h"
-#include "luce/common/thread_pool.h"
+#include "bitdb/common/logger.h"
+#include "bitdb/common/thread_pool.h"
 
 int main(int argc, char* argv[]) {
   // create thread pool with 4 worker threads

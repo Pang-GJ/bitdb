@@ -6,7 +6,7 @@
 #include "bitdb/utils/defer.h"
 #include "bitdb/utils/os_utils.h"
 #include "bitdb/utils/random.h"
-#include "bitdb/utils/string_utils.h"
+#include "bitdb/common/string_utils.h"
 #define DOCTEST_CONFIG_IMPLEMENT_WITH_MAIN
 #include <doctest/doctest.h>
 #include "bitdb/batch.h"

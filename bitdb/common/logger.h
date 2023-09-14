@@ -40,4 +40,12 @@ namespace bitdb {
         LogMsgFormat, ##__VA_ARGS__);                                 \
   } while (0)
 
+#define LOG_FATAL(LogMsgFormat, ...)                                  \
+  do {                                                                \
+    bitdb::Singleton<bitdb::common::Logger>::Get()->Log(              \
+        bitdb::common::LogLevel::FATAL, __FILE__, __func__, __LINE__, \
+        LogMsgFormat, ##__VA_ARGS__);                                 \
+    exit(-1);                                                         \
+  } while (0)
+
 }  // namespace bitdb

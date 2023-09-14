@@ -1,8 +1,10 @@
 #include <string>
-#include "luce/codec/serializer.h"
-#include "luce/common/logger.h"
-#include "luce/net/rpc/rpc_client.h"
-#include "luce/net/rpc_all.h"
+#include "bitdb/codec/serializer.h"
+#include "bitdb/common/logger.h"
+#include "bitdb/net/rpc/rpc_client.h"
+#include "bitdb/net/rpc_all.h"
+
+using namespace bitdb;
 
 struct Student {
   std::string name;
@@ -20,8 +22,7 @@ struct Student {
 };
 
 int main(int argc, char* argv[]) {
-  spdlog::set_level(spdlog::level::debug);
-  net::rpc::BlockingRpcClient client("127.0.0.1", 12345);
+  bitdb::net::rpc::BlockingRpcClient client("127.0.0.1", 12345);
   int res = client.Call<int>("add", 2, 3).val();
   LOG_INFO("call add response: {}", res);
 

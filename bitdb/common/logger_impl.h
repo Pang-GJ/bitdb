@@ -15,7 +15,7 @@
 #include <tuple>
 #include <type_traits>
 #include "bitdb/common/buffer.h"
-#include "bitdb/utils/format.h"
+#include "bitdb/common/format.h"
 
 namespace bitdb::common {
 
@@ -25,6 +25,7 @@ enum class LogLevel : uint8_t {
   DEBUG,
   WARN,
   ERROR,
+  FATAL,
   CTRI,  // Critical
 };
 
@@ -40,6 +41,8 @@ inline const char* LogLevelToString(LogLevel level) {
       return "WARN";
     case LogLevel::ERROR:
       return "ERROR";
+    case LogLevel::FATAL:
+      return "FATAL";
     case LogLevel::CTRI:
       return "CTRI";
     default:
@@ -61,6 +64,8 @@ inline const char* LogLevelToColorFulString(LogLevel level) {
       return "\033[33mWARN\033[0m";  // 设置为黄色
     case LogLevel::ERROR:
       return "\033[31mERROR\033[0m";  // 设置为红色
+    case LogLevel::FATAL:
+      return "\033[35mFATAL\033[0m";  // 设置为紫色
     case LogLevel::CTRI:
       return "\033[35mCTRI\033[0m";  // 设置为紫色
     default:

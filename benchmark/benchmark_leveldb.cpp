@@ -1,4 +1,4 @@
-#include "bitdb/utils/format.h"
+#include "bitdb/common/format.h"
 #define ANKERL_NANOBENCH_IMPLEMENT
 #include <nanobench.h>
 #include "bitdb/utils/random.h"

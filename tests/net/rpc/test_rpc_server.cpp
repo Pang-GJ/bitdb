@@ -1,13 +1,13 @@
 #include <string>
-#include "luce/codec/type_helper.h"
-#include "luce/common/logger.h"
-#include "luce/net/inet_address.h"
-#include "luce/net/rpc/rpc_server.h"
-#include "luce/net/rpc_all.h"
-#include "luce/net/tcp/tcp_server.h"
-#include "luce/net/tcp_all.h"
-#include "spdlog/common.h"
-#include "spdlog/spdlog.h"
+#include "bitdb/codec/type_helper.h"
+#include "bitdb/common/logger.h"
+#include "bitdb/net/inet_address.h"
+#include "bitdb/net/rpc/rpc_server.h"
+#include "bitdb/net/rpc_all.h"
+#include "bitdb/net/tcp/tcp_server.h"
+#include "bitdb/net/tcp_all.h"
+
+using namespace bitdb;
 
 struct Student {
   std::string name;
@@ -33,14 +33,13 @@ int add(int a, int b) {
 }
 
 int main(int argc, char* argv[]) {
-  spdlog::set_level(spdlog::level::debug);
-  net::InetAddress addr{12345};
-  net::rpc::RpcServer rpc_app;
+  bitdb::net::InetAddress addr{12345};
+  bitdb::net::rpc::RpcServer rpc_app;
 
   rpc_app.Bind("add", add);
   rpc_app.Bind("get_stu", get_stu);
 
-  net::TcpServer server(addr, &rpc_app, 8);
+  bitdb::net::TcpServer server(addr, &rpc_app, 8);
   server.Start();
   LOG_INFO("server end");
   return 0;

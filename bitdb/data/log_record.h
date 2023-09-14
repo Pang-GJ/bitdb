@@ -3,7 +3,7 @@
 #include <cstdint>
 #include <memory>
 #include "bitdb/utils/bytes.h"
-#include "bitdb/utils/string_utils.h"
+#include "bitdb/common/string_utils.h"
 namespace bitdb::data {
 
 // 数据内存索引，描述数据在磁盘上的位置

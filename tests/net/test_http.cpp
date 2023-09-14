@@ -1,18 +1,20 @@
 #include <string>
-#include "luce/common/json.h"
-#include "luce/common/logger.h"
-#include "luce/net/http_all.h"
-#include "luce/net/tcp_all.h"
+#include "bitdb/common/json.h"
+#include "bitdb/common/logger.h"
+#include "bitdb/net/http_all.h"
+#include "bitdb/net/tcp_all.h"
+
+using namespace bitdb;
 
 int main(int argc, char* argv[]) {
-  net::InetAddress addr{12345};
-  net::http::HttpServer http_app;
+  bitdb::net::InetAddress addr{12345};
+  bitdb::net::http::HttpServer http_app;
 
-  http_app.GET("/ping/", [](const net::http::ContextPtr& ctx) {
+  http_app.GET("/ping/", [](const bitdb::net::http::ContextPtr& ctx) {
     ctx->HTML(200, "Pong");
   });
 
-  http_app.POST("/add/", [](const net::http::ContextPtr& ctx) {
+  http_app.POST("/add/", [](const bitdb::net::http::ContextPtr& ctx) {
     LOG_INFO("POST run: {}", ctx->req_->body_.c_str());
 
     auto param1 = ctx->QueryBody("param1");
@@ -22,10 +24,10 @@ int main(int argc, char* argv[]) {
       return;
     }
     auto res = atoi(param1.c_str()) + atoi(param2.c_str());
-    ctx->HTML(200, String::Format("res: {}\n", res));
+    ctx->HTML(200, Format("res: {}\n", res));
   });
 
-  net::TcpServer server(addr, &http_app, 8);
+  bitdb::net::TcpServer server(addr, &http_app, 8);
   server.Start();
   LOG_INFO("all down");
 

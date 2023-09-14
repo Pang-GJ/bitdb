@@ -3,7 +3,7 @@
 #include <cstring>
 #include <string_view>
 #include "bitdb/utils/bytes.h"
-#include "bitdb/utils/string_utils.h"
+#include "bitdb/common/string_utils.h"
 
 namespace bitdb {
 

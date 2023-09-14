@@ -1,6 +1,6 @@
 # 类似gin的restful HTTP框架
 ## 简介
-API设计参考`gin`，作为`luce`的应用示例，暂时不考虑性能优化。
+API设计参考`gin`，作为`bitdb`的应用示例，暂时不考虑性能优化。
 
 ## 功能实现
 - GET
@@ -11,7 +11,7 @@ API设计参考`gin`，作为`luce`的应用示例，暂时不考虑性能优化
 ## example
 监听`/add/`，POST报文请求体中带有两个参数，返回这两个参数之和
 ```
-  http_app.POST("/add/", [](const net::http::ContextPtr &ctx) {
+  http_app.POST("/add/", [](const bitdb::net::http::ContextPtr &ctx) {
     LOG_INFO("POST run: {}", ctx->req_->body_.c_str());
 
     auto param1 = ctx->QueryBody("param1");

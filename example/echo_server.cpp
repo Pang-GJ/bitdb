@@ -1,16 +1,18 @@
 // same as tests/net/echo_server2.cpp
 
-#include "luce/common/logger.h"
-#include "luce/common/thread_pool.h"
-#include "luce/io/io_awaiter.h"
-#include "luce/net/tcp_all.h"
+#include "bitdb/common/logger.h"
+#include "bitdb/common/thread_pool.h"
+#include "bitdb/net/io_awaiter.h"
+#include "bitdb/net/tcp_all.h"
 
-class EchoServer : public net::TcpApplication {
+using namespace bitdb;
+
+class EchoServer : public bitdb::net::TcpApplication {
  private:
-  co::Task<> OnRequest(net::TcpConnectionPtr conn,
-                       net::TcpServer& server) override {
+  co::Task<> OnRequest(bitdb::net::TcpConnectionPtr conn,
+                       bitdb::net::TcpServer& server) override {
     while (true) {
-      net::IOBuffer buffer(512);
+      bitdb::net::IOBuffer buffer(512);
       ssize_t recv_len = co_await conn->AsyncRead(&buffer);
       if (recv_len < 0) {
         LOG_ERROR("EchoServer read error");
@@ -31,9 +33,9 @@ class EchoServer : public net::TcpApplication {
 };
 
 int main(int argc, char* argv[]) {
-  net::InetAddress addr{12345};
+  bitdb::net::InetAddress addr{12345};
   EchoServer app;
-  net::TcpServer server(addr, &app, 8);
+  bitdb::net::TcpServer server(addr, &app, 8);
   server.Start();
   LOG_INFO("all down");
 }

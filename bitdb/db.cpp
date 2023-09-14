@@ -19,7 +19,7 @@
 #include "bitdb/status.h"
 #include "bitdb/utils/defer.h"
 #include "bitdb/utils/os_utils.h"
-#include "bitdb/utils/string_utils.h"
+#include "bitdb/common/string_utils.h"
 
 namespace bitdb {
 DB::DB(Options options)
@@ -316,8 +316,8 @@ Status DB::LoadDataFiles() {
   }
   std::vector<uint32_t> filed_ids;
   while ((dp = readdir(dir_ptr)) != nullptr) {
-    if (EndsWith(dp->d_name, data::K_DATA_FILE_SUFFIX)) {
-      auto split_names = Split(dp->d_name, '.');
+    if (String::EndsWith(dp->d_name, data::K_DATA_FILE_SUFFIX)) {
+      auto split_names = String::Split(dp->d_name, '.');
       if (split_names.size() != 2) {
         return Status::Corruption("DB::LoadDataFiles",
                                   "database dir maybe corrupted");

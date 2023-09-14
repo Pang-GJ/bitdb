@@ -4,9 +4,9 @@
 #include "bitdb/io/io_interface.h"
 #include "bitdb/status.h"
 #include "bitdb/utils/bytes.h"
-#include "bitdb/utils/format.h"
+#include "bitdb/common/format.h"
 #include "bitdb/utils/os_utils.h"
-#include "bitdb/utils/string_utils.h"
+#include "bitdb/common/string_utils.h"
 
 namespace bitdb::data {
 
