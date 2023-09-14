@@ -35,7 +35,7 @@ perf stat还会给出其他几个常用的统计信息：
 - cache-misses：cache失效的次数；
 
 perf record -e cpu-clock -g ./perf_debug
-perf reporg -g
+perf report -g
 ```shell
 Samples: 158K of event 'cpu-clock:u', Event count (approx.): 39631500000
   Children      Self  Command     Shared Object         Symbol
