@@ -19,21 +19,6 @@ struct RpcResponse {
 
   T val() const { return detail_value; }
 
-  friend codec::Serializer& operator>>(codec::Serializer& in,
-                                       RpcResponse<T>* value) {
-    in >> value->err_code >> value->err_msg;
-    if (value->err_code == 0) {
-      in >> value->detail_value;
-    }
-    return in;
-  }
-
-  friend codec::Serializer& operator<<(codec::Serializer& out,
-                                       const RpcResponse<T>& value) {
-    out << value.err_code << value.err_msg << value.detail_value;
-    return out;
-  }
-
   void serialize(codec::Serializer* serializer) const {
     serializer->serialize(err_code);
     serializer->serialize(err_msg);
@@ -51,4 +36,4 @@ struct RpcResponse {
   type detail_value{};
 };
 
-}  // namespace bitdb::bitdb::net::rpc
+}  // namespace bitdb::net::rpc
