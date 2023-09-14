@@ -70,10 +70,18 @@ cmake-build-*
 # custom rules
 draft/
 
+# xmake
+.xmake
+compile_commands.json
+
+# Built Visual Studio Code Extensions
+*.vsix
+
 perf.data*
 *.data
 
 # log for perf
+log
 tmp
 *.rdb
 *.svg
@@ -84,3 +92,5 @@ public/
 # xmake
 .xmake/
 compile_commands.json
+# python cache
+__pycache__/
