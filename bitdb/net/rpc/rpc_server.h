@@ -111,9 +111,9 @@ class RpcServer : public TcpApplication {
     auto* output_serializer = new codec::Serializer;
     if (!handlers_.contains(name)) {
       output_serializer->serialize(
-          RpcResponse<int>::code_type(RPC_ERR_FUNCTION_NOT_FOUND));
-      output_serializer->serialize(
-          RpcResponse<int>::msg_type("function not bind: " + name));
+          static_cast<RpcResponse<int>::code_type>(RPC_ERR_FUNCTION_NOT_FOUND));
+      output_serializer->serialize(static_cast<RpcResponse<int>::msg_type>(
+          "function not bind: " + name));
       LOG_ERROR("function not bind: {}", name);
       return output_serializer;
     }

@@ -1,5 +1,6 @@
 #pragma once
 
+#include <atomic>
 #include <utility>
 #include "bitdb/co/co_thread_pool.h"
 #include "bitdb/co/task.h"
@@ -12,8 +13,11 @@ class Scheduler {
 
   void co_spawn(Task<>&& task) noexcept;
 
+  void run() noexcept;
+
  private:
   co::ThreadPool tp_;
+  std::atomic<int> id_generator_{0};
 };
 
 void co_spawn(Task<>&& task) noexcept {

@@ -7,7 +7,7 @@
 #include "bitdb/net/tcp/tcp_server.h"
 #include "bitdb/net/tcp_all.h"
 
-using namespace bitdb;
+using namespace bitdb;  // NOLINT
 
 struct Student {
   std::string name;

@@ -28,6 +28,8 @@ class ThreadPool {
 
   void ScheduleById(TaskItem::TaskType coro, int32_t id = -1);
 
+  void WaitStop();
+
   int32_t GetCurrentId() const;
   size_t GetItemCount() const;
   size_t GetThreadNum() const { return thread_num_; };

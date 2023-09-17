@@ -8,6 +8,7 @@
 #include <unistd.h>
 #include <cerrno>
 #include <cstring>
+#include <string_view>
 #include <tuple>
 #include "bitdb/co/task.h"
 #include "bitdb/codec/serializer.h"
@@ -17,6 +18,7 @@
 #include "bitdb/net/rpc/rpc_err_code.h"
 #include "bitdb/net/rpc/rpc_value.h"
 #include "bitdb/net/tcp/tcp_application.h"
+#include "bitdb/net/tcp/tcp_client.h"
 #include "bitdb/net/tcp/tcp_connection.h"
 namespace bitdb::net::rpc {
 
@@ -32,8 +34,9 @@ class BlockingRpcClient {
 
     int retry_times = 50;
     while ((retry_times--) != 0) {
-      int res = connect(client_fd_, (struct sockaddr*)&server_addr,
-                        sizeof(server_addr));
+      int res =
+          connect(client_fd_, reinterpret_cast<struct sockaddr*>(&server_addr),
+                  sizeof(server_addr));
       if (res == 0) {
         break;
       }
@@ -73,9 +76,7 @@ class BlockingRpcClient {
  private:
   template <typename R>
   RpcResponse<R> NetCall(codec::Serializer& serializer) {
-    const auto serialized_data = serializer.str();
-
-    IOBuffer request_buffer(serialized_data.cbegin(), serialized_data.cend());
+    IOBuffer request_buffer(serializer.cbegin(), serializer.cend());
     if (err_code_ != RPC_ERR_RECV_TIMEOUT) {
       auto res = WritePacket(request_buffer);
       if (res != serializer.size()) {
@@ -178,6 +179,83 @@ class BlockingRpcClient {
 
   int client_fd_{-1};
   int err_code_;
+};
+
+class RpcClient {
+ public:
+  RpcClient() = default;
+  ~RpcClient() = default;
+
+  template <typename R, typename... Params>
+  co::Task<RpcResponse<R>> Call(const std::string& name, Params... params) {
+    using args_type = std::tuple<typename std::decay<Params>::type...>;
+    args_type args = std::make_tuple(params...);
+
+    codec::Serializer serializer;
+    serializer.serialize(name);
+    serializer.serialize(args);
+    LOG_INFO("call {}", name);
+    co_return co_await NetCall<R>(serializer);
+  }
+
+  template <typename R>
+  co::Task<RpcResponse<R>> Call(const std::string& name) {
+    codec::Serializer serializer;
+    serializer.serialize(name);
+    co_return co_await NetCall<R>(serializer);
+  }
+
+  co::Task<bool> Connect(std::string_view server_ip, int server_port) {
+    // if (conn_ != nullptr) {
+    //   LOG_WARN("RpcClient already connect to server");
+    //   co_return false;
+    // }
+    conn_ = co_await tcp_client_.connect(server_ip, server_port);
+    if (conn_ == nullptr) {
+      co_return false;
+    }
+    co_return true;
+  }
+
+ private:
+  template <typename R>
+  co::Task<RpcResponse<R>> NetCall(codec::Serializer& serializer) {
+    IOBuffer request_buffer(serializer.cbegin(), serializer.cend());
+    if (err_code_ != RPC_ERR_RECV_TIMEOUT) {
+      // auto res = WritePacket(request_buffer);
+      if (conn_ == nullptr) {
+        // std::cout << "conn is nullptr" << std::endl;
+        LOG_INFO("conn is nullptr");
+      }
+      auto res = co_await conn_->AsyncWritePacket(request_buffer);
+      if (!res) {
+        LOG_FATAL("rpc client send error, errno: {}", errno);
+      }
+    }
+
+    IOBuffer reply_buffer;
+    // auto recv_res = ReadPacket(reply_buffer);
+    auto recv_res = co_await conn_->AsyncReadPacket(&reply_buffer);
+    RpcResponse<R> value;
+    if (!recv_res) {
+      LOG_ERROR("NetCall get response failed");
+      err_code_ = RPC_ERR_RECV_TIMEOUT;
+      value.err_code = err_code_;
+      value.err_msg = "recv timeout";
+      co_return value;
+    }
+
+    err_code_ = RPC_SUCCECC;
+
+    codec::Serializer response_serializer(reply_buffer.begin(),
+                                          reply_buffer.end());
+    response_serializer.deserialize(&value);
+    co_return value;
+  }
+
+  int err_code_;
+  TcpClient tcp_client_;
+  TcpConnectionPtr conn_;
 };
 
 }  // namespace bitdb::net::rpc

@@ -1,10 +1,16 @@
+#include <chrono>
 #include <string>
+#include <thread>
+#include "bitdb/co/scheduler.h"
+#include "bitdb/co/task.h"
 #include "bitdb/codec/serializer.h"
 #include "bitdb/common/logger.h"
+#include "bitdb/common/singleton.h"
 #include "bitdb/net/rpc/rpc_client.h"
 #include "bitdb/net/rpc_all.h"
 
-using namespace bitdb;
+using namespace bitdb;  // NOLINT
+using bitdb::co::co_spawn;
 
 struct Student {
   std::string name;
@@ -21,13 +27,32 @@ struct Student {
   }
 };
 
+bitdb::co::Task<> co_main() {
+  bitdb::net::rpc::RpcClient rpc_client;
+  auto connect_res = co_await rpc_client.Connect("127.0.0.1", 12345);
+  if (!connect_res) {
+    LOG_ERROR("coroutine rpc cient connect error");
+  }
+  auto rpc_response1 = co_await rpc_client.Call<int>("add", 2, 3);
+  std::this_thread::sleep_for(std::chrono::milliseconds(1));
+  LOG_INFO("call add response: {}", rpc_response1.val());
+
+  auto rpc_response2 = co_await rpc_client.Call<Student>("get_stu", "pgj", 21);
+  Student stu_res = rpc_response2.val();
+  LOG_INFO("call get_stu response: name: {}, age: {}", stu_res.name,
+           stu_res.age);
+}
+
 int main(int argc, char* argv[]) {
   bitdb::net::rpc::BlockingRpcClient client("127.0.0.1", 12345);
   int res = client.Call<int>("add", 2, 3).val();
-  LOG_INFO("call add response: {}", res);
+  LOG_INFO("blocking call add response: {}", res);
 
   Student stu_res = client.Call<Student>("get_stu", "pgj", 21).val();
-  LOG_INFO("call get_stu response: name: {}, age: {}", stu_res.name,
+  LOG_INFO("bloking call get_stu response: name: {}, age: {}", stu_res.name,
            stu_res.age);
+
+  co_spawn(co_main());
+  Singleton<co::Scheduler>::Get()->run();
   return 0;
 }

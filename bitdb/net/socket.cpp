@@ -58,4 +58,4 @@ void Socket::SetNonblock() {
   fcntl(fd_, F_SETFL, flag | O_NONBLOCK);
 }
 
-}  // namespace net
+}  // namespace bitdb::net

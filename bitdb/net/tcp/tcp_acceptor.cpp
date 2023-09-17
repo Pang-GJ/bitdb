@@ -25,4 +25,4 @@ co::Task<TcpConnectionPtr> TcpAcceptor::accept() {
                                             server_.GetMainReactor());
 }
 
-}  // namespace bitb::net
+}  // namespace bitdb::net

@@ -127,6 +127,12 @@ void ThreadPool::ScheduleById(TaskItem::TaskType coro, int32_t id) {
   }
 }
 
+void ThreadPool::WaitStop() {
+  for (auto& worker : workers_) {
+    worker.join();
+  }
+}
+
 int32_t ThreadPool::GetCurrentId() const {
   auto* current = GetCurrent();
   if (this == current->second) {

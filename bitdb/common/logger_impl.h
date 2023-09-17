@@ -1,6 +1,7 @@
 #pragma once
 
 #include <fcntl.h>
+#include <sys/syscall.h>
 #include <sys/types.h>
 #include <unistd.h>
 #include <chrono>
@@ -124,9 +125,8 @@ inline std::string FormatTimestamp(uint64_t timestamp) {
                 std::put_time(std::localtime(&tm), "%Y-%m-%d %H.%M.%S"), diff);
 }
 
-inline std::thread::id ThisThreadId() {
-  const static thread_local std::thread::id id = std::this_thread::get_id();
-
+inline int ThisThreadId() {
+  const static thread_local int id = static_cast<int>(::syscall(SYS_gettid));
   return id;
 }
 
@@ -153,13 +153,13 @@ struct LogLine {
     return *this;
   }
 
-  LogLevel level;             // NOLINT
-  uint64_t timestamp;         // NOLINT
-  std::thread::id thread_id;  // NOLINT
-  std::string file_name;      // NOLINT
-  std::string func_name;      // NOLINT
-  int line_num;               // NOLINT
-  std::string content;        // NOLINT
+  LogLevel level;         // NOLINT
+  uint64_t timestamp;     // NOLINT
+  int thread_id;          // NOLINT
+  std::string file_name;  // NOLINT
+  std::string func_name;  // NOLINT
+  int line_num;           // NOLINT
+  std::string content;    // NOLINT
 };
 
 class ConsoleWriter {
@@ -167,11 +167,12 @@ class ConsoleWriter {
   ~ConsoleWriter() { ::fsync(STDOUT_FILENO); }
 
   void Write(const LogLine& log_line) {
-    std::string log_data = Format(
-        "[{}] {} {} {}-{}({}): {}\n", LogLevelToColorFulString(log_line.level),
-        detail::FormatTimestamp(log_line.timestamp), log_line.thread_id,
-        log_line.file_name, log_line.line_num, log_line.func_name,
-        log_line.content);
+    std::string log_data =
+        Format("[{}] {} {} {}:{} ({}) : {}\n",
+               LogLevelToColorFulString(log_line.level),
+               detail::FormatTimestamp(log_line.timestamp), log_line.thread_id,
+               log_line.file_name, log_line.line_num, log_line.func_name,
+               log_line.content);
     auto res = ::write(STDOUT_FILENO, log_data.c_str(), log_data.length());
     if (res < 0) {
       perror("could not log to console\n");
@@ -199,7 +200,7 @@ class FileWriter {
 
   void Write(const LogLine& log_line) {
     std::string log_data =
-        Format("[{}] {} {} {}-{}({}): {}\n", LogLevelToString(log_line.level),
+        Format("[{}] {} {} {}:{} ({}) : {}\n", LogLevelToString(log_line.level),
                detail::FormatTimestamp(log_line.timestamp), log_line.thread_id,
                log_line.file_name, log_line.line_num, log_line.func_name,
                log_line.content);
