@@ -14,15 +14,16 @@
 #include <thread>
 #include <tuple>
 #include <type_traits>
+#include "bitdb/common/blocking_queue.h"
 #include "bitdb/common/buffer.h"
 #include "bitdb/common/format.h"
 
 namespace bitdb::common {
 
 enum class LogLevel : uint8_t {
-  TRACE,
-  INFO,
+  TRACE = 0,
   DEBUG,
+  INFO,
   WARN,
   ERROR,
   FATAL,
@@ -132,6 +133,26 @@ inline std::thread::id ThisThreadId() {
 }  // namespace detail
 
 struct LogLine {
+  LogLine() = default;
+  LogLine(LogLine&& rhs) noexcept : thread_id(rhs.thread_id) {
+    level = rhs.level;
+    timestamp = rhs.timestamp;
+    file_name = std::move(rhs.file_name);
+    func_name = std::move(rhs.func_name);
+    line_num = rhs.line_num;
+    content = std::move(rhs.content);
+  }
+  LogLine& operator=(LogLine&& rhs) noexcept {
+    level = rhs.level;
+    timestamp = rhs.timestamp;
+    thread_id = rhs.thread_id;
+    file_name = std::move(rhs.file_name);
+    func_name = std::move(rhs.func_name);
+    line_num = rhs.line_num;
+    content = std::move(rhs.content);
+    return *this;
+  }
+
   LogLevel level;             // NOLINT
   uint64_t timestamp;         // NOLINT
   std::thread::id thread_id;  // NOLINT
@@ -222,13 +243,14 @@ class FileWriter {
 // TODO(pangguojian): Logger has bug, seems like only first log will be flushed
 class Logger {
  public:
-  Logger() : buffer_(512), file_writer_("./log", 32, true) {
+  Logger() : file_writer_("./log", 32, true) {
     persist_thread_ = std::thread(&Logger::PersistThreadFunc, this);
-    min_level_ = LogLevel::INFO;
+    min_level_ = LogLevel::DEBUG;
   }
 
   ~Logger() {
     stop_ = true;
+    buffer_.stop();
     persist_thread_.join();
   }
 
@@ -241,28 +263,34 @@ class Logger {
     if (level < min_level_) {
       return;
     }
-    LogLine log_line{.level = level,
-                     .timestamp = detail::TimestampNow(),
-                     .thread_id = detail::ThisThreadId()};
+    LogLine log_line{};
+    log_line.level = level;
+    log_line.timestamp = detail::TimestampNow();
+    log_line.thread_id = detail::ThisThreadId();
     log_line.file_name = file;
     log_line.func_name = func;
     log_line.line_num = line;
     log_line.content = Format(fmt, std::forward<Args>(args)...);
 
-    buffer_.Push(std::move(log_line));
+    // buffer_.Push(std::move(log_line));
+    buffer_.push(std::move(log_line));
   }
 
  private:
   void PersistThreadFunc() {
     while (!stop_) {
       LogLine log_line;
-      while (buffer_.TryPop(&log_line)) {
+      // while (buffer_.TryPop(&log_line)) {
+      while (buffer_.pop(&log_line)) {
         file_writer_.Write(log_line);
       }
     }
   }
 
-  RingBuffer<LogLine> buffer_;
+  // TODO(pangguojian): fix QueueBuffer bugs,
+  // BlockingQueue has lock competition with read and write.
+  // QueueBuffer<LogLine> buffer_;
+  BlockingQueue<LogLine> buffer_;
   FileWriter file_writer_;
   bool stop_{false};
   std::thread persist_thread_;

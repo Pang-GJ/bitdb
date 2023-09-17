@@ -154,12 +154,12 @@ class QueueBuffer : BufferBase<T> {
     auto write_index = write_index_.fetch_add(1, std::memory_order_relaxed);
     if (write_index < Buffer<T>::SIZE) {
       if (current_write_buffer_.load(std::memory_order_acquire)
-              ->push(std::move(value), write_index)) {
+              ->Push(std::move(value), write_index)) {
         SetupNextWriteBuffer();
       }
     } else {
       while (write_index_.load(std::memory_order_acquire) >= Buffer<T>::SIZE) {
-        ;
+        // ;
       }
       Push(std::move(value));
     }

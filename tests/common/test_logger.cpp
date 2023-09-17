@@ -17,3 +17,9 @@ TEST_CASE("test LOG_DEBUG") {
 TEST_CASE("test LOG_ERROR") {
   LOG_ERROR("this is a error, {}", "hello", "ERROR");
 }
+
+TEST_CASE("multi log") {
+  for (auto i = 0; i < 1000; ++i) {
+    LOG_INFO("iter {}", i);
+  }
+}
