@@ -48,4 +48,8 @@ namespace bitdb {
     exit(-1);                                                         \
   } while (0)
 
+inline void SettingLoggerLevel(common::LogLevel level) {
+  bitdb::Singleton<bitdb::common::Logger>::Get()->SetLogLevel(level);
+}
+
 }  // namespace bitdb

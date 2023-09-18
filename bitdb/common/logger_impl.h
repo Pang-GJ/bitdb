@@ -246,7 +246,7 @@ class Logger {
  public:
   Logger() : file_writer_("./log", 32, true) {
     persist_thread_ = std::thread(&Logger::PersistThreadFunc, this);
-    min_level_ = LogLevel::DEBUG;
+    min_level_ = LogLevel::INFO;
   }
 
   ~Logger() {
