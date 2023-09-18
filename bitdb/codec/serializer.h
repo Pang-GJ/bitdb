@@ -96,6 +96,7 @@ class Serializer {
     if constexpr (has_size_method_v<Container>) {
       size = value.size();
     } else {
+      // NOTE(pangguojian): only for std::forward_list
       for (auto iter = value.cbegin(); iter != value.cend(); ++iter) {
         ++size;
       }

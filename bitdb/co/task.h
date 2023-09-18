@@ -100,13 +100,11 @@ struct Task : noncopyable {
 
     bool await_ready() {
       bool res = !handle_ || handle_.done();
-      LOG_DEBUG("TaskAwaitter await_ready: {}", res);
       return res;
     }
 
     std::coroutine_handle<> await_suspend(
         std::coroutine_handle<> continuation) noexcept {
-      LOG_DEBUG("set continuation");
       handle_.promise().set_continuation(continuation);
       return handle_;
     }

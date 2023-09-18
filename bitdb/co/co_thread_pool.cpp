@@ -97,7 +97,9 @@ ThreadPool::~ThreadPool() {
     queue.stop();
   }
   for (auto& worker : workers_) {
-    worker.join();
+    if (worker.joinable()) {
+     worker.join();
+    }
   }
 }
 
@@ -129,7 +131,9 @@ void ThreadPool::ScheduleById(TaskItem::TaskType coro, int32_t id) {
 
 void ThreadPool::WaitStop() {
   for (auto& worker : workers_) {
-    worker.join();
+    if (worker.joinable()) {
+      worker.join();
+    }
   }
 }
 

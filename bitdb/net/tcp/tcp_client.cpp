@@ -5,23 +5,17 @@
 #include <memory>
 #include <string_view>
 #include <thread>
-#include "bitdb/common/logger.h"
-#include "bitdb/net/event_manager.h"
-#include "bitdb/net/socket.h"
-#include "bitdb/net/tcp/tcp_connection.h"
 
 namespace bitdb::net {
 
 TcpClient::TcpClient() {
   reactor_ = std::make_shared<EventManager>(nullptr, 4);
-  reactor_thread_ = std::thread([&]() { reactor_->Start(); });
+  reactor_thread_ = std::thread(&EventManager::Start, reactor_);
 }
 
 TcpClient::~TcpClient() {
   reactor_->Shutdown();
-  if (reactor_thread_.joinable()) {
-    reactor_thread_.join();
-  }
+  reactor_thread_.join();
 }
 
 co::Task<TcpConnectionPtr> TcpClient::connect(std::string_view server_ip,
@@ -34,7 +28,7 @@ co::Task<TcpConnectionPtr> TcpClient::connect(std::string_view server_ip,
     co_return nullptr;
   }
   auto socket = std::make_shared<Socket>(sock_fd);
-  struct sockaddr_in server_addr;
+  struct sockaddr_in server_addr{};
   server_addr.sin_family = AF_INET;
   server_addr.sin_port = htons(server_port);
   server_addr.sin_addr.s_addr = inet_addr(server_ip.data());

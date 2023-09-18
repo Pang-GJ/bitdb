@@ -1,11 +1,8 @@
 #include <string>
+#include "bitdb/co/scheduler.h"
 #include "bitdb/codec/type_helper.h"
-#include "bitdb/common/logger.h"
 #include "bitdb/net/inet_address.h"
 #include "bitdb/net/rpc/rpc_server.h"
-#include "bitdb/net/rpc_all.h"
-#include "bitdb/net/tcp/tcp_server.h"
-#include "bitdb/net/tcp_all.h"
 
 using namespace bitdb;  // NOLINT
 
@@ -42,5 +39,7 @@ int main(int argc, char* argv[]) {
   bitdb::net::TcpServer server(addr, &rpc_app, 8);
   server.Start();
   LOG_INFO("server end");
+  co::co_join();
+  co::co_run();
   return 0;
 }

@@ -10,6 +10,7 @@
 #include <cstring>
 #include <string_view>
 #include <tuple>
+#include <utility>
 #include "bitdb/co/task.h"
 #include "bitdb/codec/serializer.h"
 #include "bitdb/common/logger.h"
@@ -27,7 +28,7 @@ class BlockingRpcClient {
   BlockingRpcClient(const std::string& server_ip, int server_port) {
     client_fd_ = socket(AF_INET, SOCK_STREAM | SOCK_NONBLOCK, 0);
 
-    struct sockaddr_in server_addr;
+    struct sockaddr_in server_addr {};
     server_addr.sin_family = AF_INET;
     server_addr.sin_port = htons(server_port);
     server_addr.sin_addr.s_addr = inet_addr(server_ip.c_str());
@@ -57,7 +58,7 @@ class BlockingRpcClient {
 
   template <typename R, typename... Params>
   RpcResponse<R> Call(const std::string& name, Params... params) {
-    using args_type = std::tuple<typename std::decay<Params>::type...>;
+    using args_type = std::tuple<std::decay_t<Params>...>;
     args_type args = std::make_tuple(params...);
 
     codec::Serializer serializer;
@@ -105,7 +106,7 @@ class BlockingRpcClient {
     return value;
   }
 
-  size_t ReadPacket(IOBuffer& buffer) {
+  int ReadPacket(IOBuffer& buffer) {
     char head_buffer[bitdb::net::detail::HEADER_SIZE];
     size_t head_recv_size = 0;
     while (head_recv_size != bitdb::net::detail::HEADER_SIZE) {
@@ -125,7 +126,7 @@ class BlockingRpcClient {
 
     uint32_t total_read_size = *reinterpret_cast<uint32_t*>(head_buffer);
     buffer.resize(total_read_size);
-    size_t already_read_size = 0;
+    int already_read_size = 0;
     while (total_read_size != 0) {
       auto res = ::read(client_fd_, buffer.data() + already_read_size,
                         total_read_size);
@@ -178,17 +179,18 @@ class BlockingRpcClient {
   }
 
   int client_fd_{-1};
-  int err_code_;
+  int err_code_{};
 };
 
 class RpcClient {
  public:
-  RpcClient() = default;
+  explicit RpcClient(std::shared_ptr<TcpClient> client)
+      : tcp_client_(std::move(client)) {}
   ~RpcClient() = default;
 
   template <typename R, typename... Params>
   co::Task<RpcResponse<R>> Call(const std::string& name, Params... params) {
-    using args_type = std::tuple<typename std::decay<Params>::type...>;
+    using args_type = std::tuple<std::decay_t<Params>...>;
     args_type args = std::make_tuple(params...);
 
     codec::Serializer serializer;
@@ -206,11 +208,7 @@ class RpcClient {
   }
 
   co::Task<bool> Connect(std::string_view server_ip, int server_port) {
-    // if (conn_ != nullptr) {
-    //   LOG_WARN("RpcClient already connect to server");
-    //   co_return false;
-    // }
-    conn_ = co_await tcp_client_.connect(server_ip, server_port);
+    conn_ = co_await tcp_client_->connect(server_ip, server_port);
     if (conn_ == nullptr) {
       co_return false;
     }
@@ -222,7 +220,6 @@ class RpcClient {
   co::Task<RpcResponse<R>> NetCall(codec::Serializer& serializer) {
     IOBuffer request_buffer(serializer.cbegin(), serializer.cend());
     if (err_code_ != RPC_ERR_RECV_TIMEOUT) {
-      // auto res = WritePacket(request_buffer);
       if (conn_ == nullptr) {
         // std::cout << "conn is nullptr" << std::endl;
         LOG_INFO("conn is nullptr");
@@ -234,7 +231,6 @@ class RpcClient {
     }
 
     IOBuffer reply_buffer;
-    // auto recv_res = ReadPacket(reply_buffer);
     auto recv_res = co_await conn_->AsyncReadPacket(&reply_buffer);
     RpcResponse<R> value;
     if (!recv_res) {
@@ -253,8 +249,8 @@ class RpcClient {
     co_return value;
   }
 
-  int err_code_;
-  TcpClient tcp_client_;
+  int err_code_{};
+  std::shared_ptr<TcpClient> tcp_client_;
   TcpConnectionPtr conn_;
 };
 

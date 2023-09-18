@@ -24,14 +24,14 @@ template <typename T>
 struct RingBuffer : BufferBase<T> {
  public:
   struct alignas(64) Item {
-    Item() : flag_(ATOMIC_FLAG_INIT), written_(0) {}
+    Item() : flag_(0), written_(0) {}
 
    private:
     friend RingBuffer<T>;
 
     std::atomic_flag flag_;
     char written_;
-    char padding_[256 - sizeof(flag_) - sizeof(char) - sizeof(T)];
+    char padding_[256 - sizeof(flag_) - sizeof(char) - sizeof(T)]{};
     T value_;
   };
 
@@ -82,7 +82,7 @@ struct RingBuffer : BufferBase<T> {
   Item* ring_buffer_;
   // 多写，需要线程安全
   std::atomic<uint32_t> write_index_;
-  char pad_[64];
+  char pad_[64]{};
   // 单读，不需要线程安全
   uint32_t read_index_;
 };
@@ -100,7 +100,7 @@ class Buffer {
 
   struct Item {
     explicit Item(T&& value) : value_(std::move(value)) {}
-    char padding_[256 - sizeof(T)];
+    char padding_[256 - sizeof(T)]{};
     T value_;
   };
 
@@ -145,7 +145,7 @@ class QueueBuffer : BufferBase<T> {
   QueueBuffer()
       : current_read_buffer_(nullptr),
         write_index_(0),
-        flag_(ATOMIC_FLAG_INIT),
+        flag_(0),
         read_index_(0) {
     SetupNextWriteBuffer();
   }

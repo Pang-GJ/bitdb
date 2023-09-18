@@ -9,6 +9,7 @@ namespace bitdb::index {
 
 class Indexer {
  public:
+  virtual ~Indexer() = default;
   virtual bool Put(const Bytes& key, data::LogRecordPst* pos) = 0;
   virtual data::LogRecordPst* Get(const Bytes& key) = 0;
   /**

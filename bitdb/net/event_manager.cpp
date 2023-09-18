@@ -4,7 +4,7 @@
 #include <utility>
 #include <vector>
 
-#include "bitdb/common/logger.h"
+#include "bitdb/co/scheduler.h"
 #include "bitdb/common/thread_pool.h"
 #include "bitdb/net/event_manager.h"
 #include "bitdb/net/socket.h"
@@ -50,7 +50,8 @@ void EventManager::Start() {
         if (work_thread_pool_) {
           work_thread_pool_->Commit([&]() { recv_coro.resume(); });
         } else {
-          recv_coro.resume();
+          //          recv_coro.resume();
+          co::co_spawn(recv_coro);
         }
 
       } else if ((events_[i].events & EPOLLOUT) != 0U) {
@@ -60,7 +61,8 @@ void EventManager::Start() {
         if (work_thread_pool_) {
           work_thread_pool_->Commit([&]() { send_coro.resume(); });
         } else {
-          send_coro.resume();
+          //          send_coro.resume();
+          co::co_spawn(send_coro);
         }
       }
     }

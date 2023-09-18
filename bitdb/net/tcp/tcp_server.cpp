@@ -1,9 +1,5 @@
 #include "bitdb/net/tcp/tcp_server.h"
-#include "bitdb/common/logger.h"
-#include "bitdb/common/singleton.h"
-#include "bitdb/common/thread_pool.h"
 #include "bitdb/net/tcp/tcp_acceptor.h"
-#include "bitdb/timer/timer.h"
 
 namespace bitdb::net {
 
@@ -13,7 +9,7 @@ TcpServer::TcpServer(const bitdb::net::InetAddress& local_addr,
       app_(app),
       reactor_thread_pool_(std::make_unique<ThreadPool>(1)),
       work_thread_pool_(std::make_unique<ThreadPool>(thread_num)) {
-  LOG_INFO("TcpServer start");
+  LOG_INFO("TcpServer init");
   auto sock_fd = ::socket(AF_INET, SOCK_STREAM | SOCK_NONBLOCK | SOCK_CLOEXEC,
                           IPPROTO_TCP);
   if (sock_fd == -1) {
@@ -31,6 +27,7 @@ TcpServer::TcpServer(const bitdb::net::InetAddress& local_addr,
 }
 
 void TcpServer::Start(bool async_start) {
+  LOG_INFO("TcpServer start");
   if (async_start) {
     reactor_thread_pool_->Commit([&]() {
       AcceptLoop().run();

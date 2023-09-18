@@ -1,6 +1,5 @@
 #include "bitdb/co/scheduler.h"
-#include "bitdb/co/co_thread_pool.h"
-#include "bitdb/common/logger_impl.h"
+#include <thread>
 
 namespace bitdb::co {
 
@@ -14,6 +13,22 @@ void Scheduler::co_spawn(Task<>&& task) noexcept {
   tp_.ScheduleById(handle, curr_id);
 }
 
-void Scheduler::run() noexcept { tp_.WaitStop(); }
+void Scheduler::run() {
+  run_thread_ = std::thread(&ThreadPool::WaitStop, &tp_);
+}
+void Scheduler::join() {
+  if (run_thread_.joinable()) {
+    LOG_DEBUG("run thread join");
+    run_thread_.join();
+  }
+}
+
+void co_spawn(Task<>&& task) noexcept {
+  Singleton<Scheduler>::Get()->co_spawn(std::forward<Task<>>(task));
+}
+
+void co_run() { Singleton<Scheduler>::Get()->run(); }
+
+void co_join() { Singleton<Scheduler>::Get()->join(); }
 
 }  // namespace bitdb::co
