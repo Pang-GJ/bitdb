@@ -29,12 +29,18 @@ int add(int a, int b) {
   return res;
 }
 
+int test_ref(int& a) {
+  a = 10086;
+  return 10085;
+}
+
 int main(int argc, char* argv[]) {
   bitdb::net::InetAddress addr{12345};
   bitdb::net::rpc::RpcServer rpc_app;
 
   rpc_app.Bind("add", add);
   rpc_app.Bind("get_stu", get_stu);
+  rpc_app.Bind("test_ref", test_ref);
 
   bitdb::net::TcpServer server(addr, &rpc_app, 8);
   server.Start();

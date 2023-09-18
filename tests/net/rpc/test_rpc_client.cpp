@@ -3,6 +3,8 @@
 #include <thread>
 #include "bitdb/co/scheduler.h"
 #include "bitdb/codec/serializer.h"
+#include "bitdb/common/logger.h"
+#include "bitdb/common/logger_impl.h"
 #include "bitdb/net/rpc/rpc_client.h"
 #include "bitdb/net/rpc_all.h"
 
@@ -40,9 +42,16 @@ bitdb::co::Task<> co_main(std::shared_ptr<bitdb::net::TcpClient> tcp_client) {
   Student stu_res = rpc_response2.val();
   LOG_INFO("call get_stu response: name: {}, age: {}", stu_res.name,
            stu_res.age);
+
+  int a = 10;
+  auto rpc_response3 = co_await rpc_client.Call<int>("test_ref", a);
+
+  LOG_INFO("call test ref response, a: {}, return value: {}", a,
+           rpc_response3.val());
 }
 
 int main(int argc, char* argv[]) {
+  bitdb::SettingLoggerLevel(common::LogLevel::DEBUG);
   bitdb::net::rpc::BlockingRpcClient client("127.0.0.1", 12345);
   int res = client.Call<int>("add", 2, 3).val();
   LOG_INFO("blocking call add response: {}", res);
