@@ -13,10 +13,12 @@ namespace bitdb {
 class Random {
  private:
   uint32_t seed_;
+  bool simple_mode_;
   std::default_random_engine engine_;
 
  public:
-  explicit Random(uint32_t s = 0) : seed_(s) {
+  explicit Random(uint32_t s = 0, bool simple_mode = false)
+      : seed_(s), simple_mode_(simple_mode) {
     if (seed_ > 0) {
       engine_.seed(seed_);
     } else {
@@ -52,11 +54,32 @@ class Random {
   uint32_t GetSimpleRandomNum() { return rand(); }
   uint32_t GetRandomNum() { return engine_(); }
 
-  uint32_t Next() { return GetSimpleRandomNum(); }
+  uint32_t Next() {
+    if (simple_mode_) {
+      return GetSimpleRandomNum();
+    }
+    return GetRandomNum();
+  }
 
-  // Returns a uniformly distributed value in the range [0..n-1]
-  // REQUIRES: n > 0
+  /**
+   * @brief Returns a uniformly distributed value in the range [0..n-1]
+   *
+   * @param n n should > 0
+   * @return uint32_t
+   */
   uint32_t Uniform(int n) { return Next() % n; }
+
+  /**
+   * @brief Returns a uniformly distributed value in the range [begin..end-1]
+   *
+   * @param begin
+   * @param end
+   * @return uint32_t
+   */
+  uint32_t UniformRange(int begin, int end) {
+    int delta = end - begin;
+    return begin + Uniform(delta);
+  }
 
   // Randomly returns true ~"1/n" of the time, and false otherwise.
   // REQUIRES: n > 0
