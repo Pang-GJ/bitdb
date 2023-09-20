@@ -12,6 +12,7 @@
 #include <utility>
 #include "bitdb/codec/serializer.h"
 #include "bitdb/common/logger.h"
+#include "bitdb/net/inet_address.h"
 #include "bitdb/net/io_awaiter.h"
 #include "bitdb/net/rpc/invoke_helper.h"
 #include "bitdb/net/rpc/rpc_err_code.h"
@@ -26,7 +27,7 @@ class RpcServer : public TcpApplication {
   using HandleFunc =
       std::function<void(codec::Serializer*, codec::Serializer*)>;
   RpcServer() = default;
-  ~RpcServer() = default;
+  ~RpcServer() override = default;
 
   template <typename F>
   void Bind(std::string_view name, F func) {
@@ -38,9 +39,13 @@ class RpcServer : public TcpApplication {
   template <typename F, typename S>
   void Bind(std::string_view name, F func, S* s) {
     handlers_[name.data()] =
-        std::bind(&RpcServer::CallProxy<F, S>, this, func,
+        std::bind(&RpcServer::CallProxy<F, S>, this, func, s,
                   std::placeholders::_1, std::placeholders::_2);
   }
+
+  bool reachable() const { return reachable_; }
+  void set_reachable(bool reachable) { reachable_ = reachable; }
+  void set_reliable(bool reliable) {}
 
  private:
   co::Task<> OnRequest(TcpConnectionPtr conn, TcpServer& server) override {
@@ -181,6 +186,7 @@ class RpcServer : public TcpApplication {
   }
 
   std::unordered_map<std::string, HandleFunc> handlers_;
+  bool reachable_{true};
 };
 
 }  // namespace bitdb::net::rpc

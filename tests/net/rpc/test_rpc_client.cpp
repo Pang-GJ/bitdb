@@ -48,6 +48,9 @@ bitdb::co::Task<> co_main(std::shared_ptr<bitdb::net::TcpClient> tcp_client) {
 
   LOG_INFO("call test ref response, a: {}, return value: {}", a,
            rpc_response3.val());
+
+  auto rpc_response4 = co_await rpc_client.Call<std::string>("get_name");
+  LOG_INFO("Call get_name, return value: {}", rpc_response4.val());
 }
 
 int main(int argc, char* argv[]) {

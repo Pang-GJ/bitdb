@@ -16,6 +16,11 @@ class TcpClient : noncopyable {
   co::Task<TcpConnectionPtr> connect(std::string_view server_ip,
                                      int server_port, int retry_times = 50);
 
+  co::Task<TcpConnectionPtr> connect(sockaddr* sock_addr, int retry_times = 50);
+
+  TcpConnectionPtr block_connect(std::string_view server_ip, int server_port, int retry_times = 50);
+  TcpConnectionPtr block_connect(sockaddr* sock_addr, int retry_times = 50);
+
  private:
   std::shared_ptr<EventManager> reactor_;
   std::thread reactor_thread_;

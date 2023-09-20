@@ -14,6 +14,7 @@ class TcpServer;
 class TcpApplication {
  public:
   TcpApplication() = default;
+  virtual ~TcpApplication() = default;
 
   co::Task<> HandleRequest(TcpConnectionPtr conn, TcpServer& server);
 

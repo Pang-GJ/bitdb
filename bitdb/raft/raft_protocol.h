@@ -45,29 +45,29 @@ struct RequestVoteReply {
 
 template <typename Command>
 struct LogEntry {
-  void serialize(codec::Serializer* serializer) const;
-  void deserialize(codec::Serializer* serializer);
+  void serialize(codec::Serializer* serializer) const {}
+  void deserialize(codec::Serializer* serializer) {}
 };
 
 template <typename Command>
 struct AppendEntriesArgs {
-  void serialize(codec::Serializer* serializer) const;
-  void deserialize(codec::Serializer* serializer);
+  void serialize(codec::Serializer* serializer) const {}
+  void deserialize(codec::Serializer* serializer) {}
 };
 
 struct AppendEntriesReply {
-  void serialize(codec::Serializer* serializer) const;
-  void deserialize(codec::Serializer* serializer);
+  void serialize(codec::Serializer* serializer) const {}
+  void deserialize(codec::Serializer* serializer) {}
 };
 
 struct InstallSnapshotArgs {
-  void serialize(codec::Serializer* serializer) const;
-  void deserialize(codec::Serializer* serializer);
+  void serialize(codec::Serializer* serializer) const {}
+  void deserialize(codec::Serializer* serializer) {}
 };
 
 struct InstallSnapshotReply {
-  void serialize(codec::Serializer* serializer) const;
-  void deserialize(codec::Serializer* serializer);
+  void serialize(codec::Serializer* serializer) const {}
+  void deserialize(codec::Serializer* serializer) {}
 };
 
 }  // namespace bitdb::raft

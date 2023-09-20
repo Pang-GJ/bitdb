@@ -14,10 +14,15 @@ class RaftStorage {
 
  public:
   explicit RaftStorage(std::string_view file_dir);
-  ~RaftStorage();
+  ~RaftStorage() = default;
 
  private:
   std::mutex mtx_;
 };
+
+template <typename Command>
+inline RaftStorage<Command>::RaftStorage(std::string_view file_dir) {
+  //
+}
 
 }  // namespace bitdb::raft

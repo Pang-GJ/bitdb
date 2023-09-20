@@ -106,7 +106,7 @@ class Raft {
                                         const InstallSnapshotReply& reply);
 
   int32_t GetLastLogIndex();
-  int32_t GetLogTerm();
+  int32_t GetLogTerm(int log_index);
 
   bool is_stopped() const { return stopped_.load(); }
   int num_nodes() const { return rpc_clients_.size(); }
@@ -270,7 +270,7 @@ inline RequestVoteReply Raft<StateMachine, Command>::RequestVote(
   if (args.term == current_term_ &&
       (vote_for_ == -1 || vote_for_ == args.candidate_id)) {
     const int last_log_index = GetLastLogIndex();
-    const int last_log_term = GetLogTerm();
+    const int last_log_term = GetLogTerm(last_log_index);
     if (last_log_term < args.last_log_term ||
         (last_log_term == args.last_log_term &&
          last_log_index <= args.last_log_index)) {
@@ -351,7 +351,7 @@ inline int32_t Raft<StateMachine, Command>::GetLastLogIndex() {
 }
 
 template <typename StateMachine, typename Command>
-inline int32_t Raft<StateMachine, Command>::GetLogTerm() {
+inline int32_t Raft<StateMachine, Command>::GetLogTerm(int log_index) {
   // TODO(pangguojian): impl this
   return 0;
 }
@@ -417,6 +417,9 @@ inline void Raft<StateMachine, Command>::StartElection() {
 
   const auto size = num_nodes();
   for (int i = 0; i < size; ++i) {
+    if (i == my_id_) {
+      continue;
+    }
     co_spawn(SendRequestVote(i, args, saved_current_term));
   }
 }

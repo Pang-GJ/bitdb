@@ -45,7 +45,9 @@ class BlockingRpcClient {
         if (errno == EINPROGRESS) {
           continue;
         }
-        LOG_FATAL("blocking rpc client connect failed, errno: {}", errno);
+        LOG_FATAL(
+            "blocking rpc client connect failed, errno: {}, description: {}",
+            errno, strerror(errno));
       }
     }
   }
@@ -215,6 +217,29 @@ class RpcClient {
     co_return true;
   }
 
+  co::Task<bool> Connect(sockaddr* server_addr) {
+    conn_ = co_await tcp_client_->connect(server_addr);
+    if (conn_ == nullptr) {
+      co_return false;
+    }
+    co_return true;
+  }
+
+  bool BlockConnect(sockaddr* server_addr) {
+    conn_ = tcp_client_->block_connect(server_addr);
+    return conn_ != nullptr;
+  }
+
+  bool BlockConnect(std::string_view server_ip, int port) {
+    conn_ = tcp_client_->block_connect(server_ip, port);
+    return conn_ != nullptr;
+  }
+
+  bool reachable() const { return reachable_; }
+  void set_reachable(bool reachable) { reachable_ = reachable; }
+
+  int count() const { return 0; }
+
  private:
   template <typename R>
   co::Task<RpcResponse<R>> NetCall(codec::Serializer& serializer) {
@@ -252,6 +277,7 @@ class RpcClient {
   int err_code_{};
   std::shared_ptr<TcpClient> tcp_client_;
   TcpConnectionPtr conn_;
+  bool reachable_{true};
 };
 
 }  // namespace bitdb::net::rpc

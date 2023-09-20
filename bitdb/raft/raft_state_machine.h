@@ -33,7 +33,7 @@ class RaftStateMachine {
    * @brief apply the snapshot to the state machine
    *
    */
-  virtual void ApplySnapshot() = 0;
+  virtual void ApplySnapshot(const std::vector<char>&) = 0;
 };
 
 }  // namespace bitdb::raft

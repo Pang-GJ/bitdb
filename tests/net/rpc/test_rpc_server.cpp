@@ -10,6 +10,8 @@ struct Student {
   std::string name;
   int age;
 
+  std::string GetName() { return name; }
+
   void serialize(codec::Serializer* serializer) const {
     serializer->serialize(name);
     serializer->serialize(age);
@@ -38,9 +40,11 @@ int main(int argc, char* argv[]) {
   bitdb::net::InetAddress addr{12345};
   bitdb::net::rpc::RpcServer rpc_app;
 
+  Student stu{.name = "pgj", .age = 21};
   rpc_app.Bind("add", add);
   rpc_app.Bind("get_stu", get_stu);
   rpc_app.Bind("test_ref", test_ref);
+  rpc_app.Bind("get_name", &Student::GetName, &stu);
 
   bitdb::net::TcpServer server(addr, &rpc_app, 8);
   server.Start();

@@ -144,7 +144,10 @@ void EventManager::UpdateEvent(const std::shared_ptr<Socket>& socket,
   ev.events = new_state;
   ev.data.ptr = &socket->handle;
   if (epoll_ctl(epfd_, EPOLL_CTL_MOD, socket->GetFd(), &ev) == -1) {
-    LOG_FATAL("epoll_ctl_mod: error");
+    LOG_FATAL(
+        "epoll_ctl_mod error, epfd: {}, target fd: {}, errno: {}, description: "
+        "{}",
+        epfd_, socket->GetFd(), errno, strerror(errno));
   }
 }
 

@@ -1,5 +1,6 @@
 #include "bitdb/net/io_awaiter.h"
 #include <cerrno>
+#include <cstring>
 
 namespace bitdb::net {
 
@@ -93,7 +94,7 @@ co::Task<bool> AsyncWritePacket(TcpConnection* conn, const IOBuffer& buffer) {
       if (errno == EINTR || errno == EWOULDBLOCK || errno == EAGAIN) {
         continue;
       }
-      LOG_DEBUG("AsyncWritePacket error, errno: {}", errno);
+      LOG_DEBUG("AsyncWritePacket error, errno: {}, description", errno, strerror(errno));
       co_return false;
     }
     total_write_size -= res;
