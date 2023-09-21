@@ -113,11 +113,15 @@ class AcceptAwaiter {
   void await_suspend(std::coroutine_handle<> handle) {
     LOG_DEBUG("await_suspend accept, handle: {}", handle.address());
     acceptor_->GetEventManager().AddRecv(acceptor_->GetSocket(), handle);
+    need_del_ = true;
   }
 
   int await_resume() {
     LOG_DEBUG("resume accept");
-    acceptor_->GetEventManager().DelRecv(acceptor_->GetSocket());
+    if (need_del_) {
+      acceptor_->GetEventManager().DelRecv(acceptor_->GetSocket());
+      need_del_ = false;
+    }
     if (conn_fd_ < 0) {
       conn_fd_ = do_accept(acceptor_->GetSocket()->GetFd());
     }
@@ -138,6 +142,7 @@ class AcceptAwaiter {
 
   TcpAcceptor* acceptor_;
   int conn_fd_{-1};  // the coming connection fd
+  bool need_del_{false};
 };
 
 co::Task<size_t> AsyncRead(TcpConnection* conn, IOBuffer& buffer);

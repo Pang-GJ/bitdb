@@ -128,6 +128,7 @@ std::vector<bitdb::raft::RpcClientPtr> create_rpc_clients(
     if (!rpc_clients[i]->BlockConnect("127.0.0.1", port)) {
       LOG_ERROR("client {} connect failed", i);
     }
+    port++;
   }
   return rpc_clients;
 }

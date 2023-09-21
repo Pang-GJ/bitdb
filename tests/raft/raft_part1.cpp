@@ -1,3 +1,5 @@
+#include "bitdb/common/logger.h"
+#include "bitdb/common/logger_impl.h"
 #define DOCTEST_CONFIG_IMPLEMENT_WITH_MAIN
 #include <doctest/doctest.h>
 #include "tests/raft/raft_test_utils.h"
@@ -5,6 +7,7 @@
 using ListRaftGroup = RaftGroup<ListStateMachine, ListCommand>;
 
 TEST_CASE("Initial election") {
+  // bitdb::SettingLoggerLevel(bitdb::common::LogLevel::DEBUG);
   int num_nodes = 3;
   ListRaftGroup* group = new ListRaftGroup(num_nodes);
 

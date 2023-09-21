@@ -19,7 +19,9 @@ class InetAddress {
 
   void SetSockAddr(const sockaddr_in& addr) { addr_ = addr; }
 
-  struct sockaddr* GetSockAddr() const { return (struct sockaddr*)&addr_; }
+  struct sockaddr* GetSockAddr() const {
+    return (struct sockaddr*)&addr_;  // NOLINT
+  }
 
  private:
   sockaddr_in addr_{};

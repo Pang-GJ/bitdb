@@ -91,22 +91,21 @@ class Raft {
   InstallSnapshotReply InstallSnapshot(const InstallSnapshotArgs& args);
 
   // RPC helpers
-  co::Task<> SendRequestVote(int target, const RequestVoteArgs& arg,
-                             int saved_current_term);
+  co::Task<> SendRequestVote(int target, RequestVoteArgs arg,
+                             int32_t saved_current_term);
 
-  co::Task<> SendAppendEntries(int target,
-                               const AppendEntriesArgs<Command>& arg);
+  co::Task<> SendAppendEntries(int target, AppendEntriesArgs<Command> arg);
   co::Task<> HandleAppendEntriesReply(int target,
                                       const AppendEntriesArgs<Command>& arg,
                                       const AppendEntriesReply& reply);
 
-  co::Task<> SendInstallSnapshot(int target, const InstallSnapshotArgs& arg);
+  co::Task<> SendInstallSnapshot(int target, InstallSnapshotArgs arg);
   co::Task<> HandleInstallSnapshotReply(int target,
                                         const InstallSnapshotArgs& arg,
                                         const InstallSnapshotReply& reply);
 
   int32_t GetLastLogIndex();
-  int32_t GetLogTerm(int log_index);
+  int32_t GetLogTerm(int32_t log_index);
 
   bool is_stopped() const { return stopped_.load(); }
   int num_nodes() const { return rpc_clients_.size(); }
@@ -138,7 +137,7 @@ class Raft {
                                    // calculate the votes
 
   /* ----Persistent state on all server----  */
-  int current_term_;
+  int32_t current_term_;
   int vote_for_;  // 给哪个candidate投票
 
   /* ---- Volatile state on all server----  */
@@ -158,13 +157,11 @@ class Raft {
   ThreadPtr background_thread_commit_;
   ThreadPtr background_thread_apply_;
 
-  // Your code here:
-
   void StartElection();
 
-  void BeginNewTerm(int term);
-  void BecomeFollower(int term);
-  void BecomeCandidate(int term);
+  void BeginNewTerm(int32_t term);
+  void BecomeFollower(int32_t term);
+  void BecomeCandidate(int32_t term);
   void BecomeLeader();
 
   // debug helper
@@ -249,7 +246,10 @@ inline bool Raft<StateMachine, Command>::NewCommand(Command cmd, int& term,
                                                     int& index) {}
 
 template <typename StateMachine, typename Command>
-inline bool Raft<StateMachine, Command>::IsLeader(int& term) {}
+inline bool Raft<StateMachine, Command>::IsLeader(int& term) {
+  term = current_term_;
+  return role_ == leader;
+}
 
 template <typename StateMachine, typename Command>
 inline bool Raft<StateMachine, Command>::SaveSnapshot() {}
@@ -257,14 +257,19 @@ inline bool Raft<StateMachine, Command>::SaveSnapshot() {}
 template <typename StateMachine, typename Command>
 inline RequestVoteReply Raft<StateMachine, Command>::RequestVote(
     const RequestVoteArgs& args) {
-  RequestVoteReply reply{};
+  LOG_INFO(
+      "node {} receive RequestVote RPC, args.term: {}, args.candidate_id: {}, "
+      "args.last_log_inex: {}, args.last_log_term: {}",
+      my_id_, args.term, args.candidate_id, args.last_log_index,
+      args.last_log_term);
+  RequestVoteReply reply{.term = 0, .vote_granted = false};
   if (is_stopped()) {
+    LOG_INFO("when node {} stop, receive RequestVote RPC", my_id_);
     return reply;
   }
-
   std::lock_guard lock(mtx_);
   if (args.term > current_term_) {
-    LOG_INFO("term out of date in RequestVote, become follower");
+    LOG_INFO("receiver term out of date in RequestVote, become follower");
     BecomeFollower(args.term);
   }
   if (args.term == current_term_ &&
@@ -281,37 +286,48 @@ inline RequestVoteReply Raft<StateMachine, Command>::RequestVote(
     reply.vote_granted = false;
   }
   reply.term = current_term_;
+  LOG_INFO("node {} receive RequestVote RPC, return term: {}, vote_granted: {}",
+           my_id_, reply.term, reply.vote_granted);
   return reply;
 }
 
 template <typename StateMachine, typename Command>
 inline AppendEntriesReply Raft<StateMachine, Command>::AppendEntries(
-    const AppendEntriesArgs<Command>& args) {}
+    const AppendEntriesArgs<Command>& args) {
+  return {};
+}
 
 template <typename StateMachine, typename Command>
 inline InstallSnapshotReply Raft<StateMachine, Command>::InstallSnapshot(
-    const InstallSnapshotArgs& args) {}
+    const InstallSnapshotArgs& args) {
+  return {};
+}
 
 template <typename StateMachine, typename Command>
 inline co::Task<> Raft<StateMachine, Command>::SendRequestVote(
-    int target, const RequestVoteArgs& arg, int saved_current_term) {
+    int target, RequestVoteArgs arg, int32_t saved_current_term) {
   auto response = co_await rpc_clients_[target]->Call<RequestVoteReply>(
       RPC_REQUEST_VOTE, arg);
   if (response.err_code != net::rpc::RPC_SUCCECC) {
-    LOG_INFO("sending RequestVote RPC to client-{} error", target);
-    co_return;
+    LOG_INFO("node {} sending RequestVote RPC to client-{} error", my_id_,
+             target);
+    // 失败了重试
+    co_return co_await SendRequestVote(target, arg, saved_current_term);
   }
-  const auto reply = response.val();
+  const RequestVoteReply reply = response.val();
   std::lock_guard lock(mtx_);
   // 不是 candidate，退出选举（可能退化为追随者，也可能已经胜选成为领导者）
   if (role_ != candidate) {
-    LOG_INFO("while waiting for RequestVote reply, state change to {}",
-             RoleToString(role_));
+    LOG_INFO("node {} while waiting for RequestVote reply, state change to {}",
+             my_id_, RoleToString(role_));
     co_return;
   }
   // 存在更高任期（新leader），转为 follower
   if (reply.term > saved_current_term) {
-    LOG_INFO("term out of date while RequestVote");
+    LOG_INFO(
+        "node {} candidate's term out of date while RequestVote, change to "
+        "follower",
+        my_id_);
     BecomeFollower(reply.term);
     co_return;
   }
@@ -321,14 +337,16 @@ inline co::Task<> Raft<StateMachine, Command>::SendRequestVote(
   // 这里 +1 是因为 candidate 给自己一票
   // num_nodes() / 2向上取整, eg: 3台至少需要2台、5台至少需要3台
   if (follower_id_set_.size() + 1 > std::ceil(num_nodes() / 2)) {
-    LOG_INFO("wins the vote with {} votes", follower_id_set_.size());
+    LOG_INFO("node {} wins the vote with {} votes", my_id_,
+             follower_id_set_.size() + 1);
     BecomeLeader();
   }
+  co_return;
 }
 
 template <typename StateMachine, typename Command>
 inline co::Task<> Raft<StateMachine, Command>::SendAppendEntries(
-    int target, const AppendEntriesArgs<Command>& arg) {}
+    int target, AppendEntriesArgs<Command> arg) {}
 
 template <typename StateMachine, typename Command>
 inline co::Task<> Raft<StateMachine, Command>::HandleAppendEntriesReply(
@@ -337,7 +355,7 @@ inline co::Task<> Raft<StateMachine, Command>::HandleAppendEntriesReply(
 
 template <typename StateMachine, typename Command>
 inline co::Task<> Raft<StateMachine, Command>::SendInstallSnapshot(
-    int target, const InstallSnapshotArgs& arg) {}
+    int target, InstallSnapshotArgs arg) {}
 
 template <typename StateMachine, typename Command>
 inline co::Task<> Raft<StateMachine, Command>::HandleInstallSnapshotReply(
@@ -351,7 +369,7 @@ inline int32_t Raft<StateMachine, Command>::GetLastLogIndex() {
 }
 
 template <typename StateMachine, typename Command>
-inline int32_t Raft<StateMachine, Command>::GetLogTerm(int log_index) {
+inline int32_t Raft<StateMachine, Command>::GetLogTerm(int32_t log_index) {
   // TODO(pangguojian): impl this
   return 0;
 }
@@ -400,20 +418,21 @@ inline void Raft<StateMachine, Command>::RunBackgroundApply() {}
 
 template <typename StateMachine, typename Command>
 inline void Raft<StateMachine, Command>::StartElection() {
+  LOG_INFO("node {} start election", my_id_);
   RequestVoteArgs args{};
   // 用于判断 RequestVote
   // 返回时是否超时了(如果超时了，candidate重新选举，任期号加一)
-  int saved_current_term = 0;
-  {
-    std::lock_guard lock(mtx_);
-    BecomeCandidate(current_term_ + 1);
-    saved_current_term = current_term_;
+  int32_t saved_current_term = 0;
+  // {
+  std::lock_guard lock(mtx_);
+  BecomeCandidate(current_term_ + 1);
+  saved_current_term = current_term_;
 
-    args.term = current_term_;
-    args.candidate_id = my_id_;
-    args.last_log_index = GetLastLogIndex();
-    args.last_log_term = GetLogTerm(args.last_log_index);
-  }
+  args.term = saved_current_term;
+  args.candidate_id = my_id_;
+  args.last_log_index = GetLastLogIndex();
+  args.last_log_term = GetLogTerm(args.last_log_index);
+  // }
 
   const auto size = num_nodes();
   for (int i = 0; i < size; ++i) {
@@ -425,23 +444,26 @@ inline void Raft<StateMachine, Command>::StartElection() {
 }
 
 template <typename StateMachine, typename Command>
-inline void Raft<StateMachine, Command>::BeginNewTerm(int term) {
+inline void Raft<StateMachine, Command>::BeginNewTerm(int32_t term) {
   current_term_ = term;
   last_received_rpc_time_ = timer::ClockMS();
   follower_id_set_.clear();
 }
 
 template <typename StateMachine, typename Command>
-inline void Raft<StateMachine, Command>::BecomeFollower(int term) {
+inline void Raft<StateMachine, Command>::BecomeFollower(int32_t term) {
   role_ = follower;
   BeginNewTerm(term);
   vote_for_ = -1;
+  LOG_INFO("node {} become follower, term: {}", my_id_, current_term_);
 }
 
 template <typename StateMachine, typename Command>
-inline void Raft<StateMachine, Command>::BecomeCandidate(int term) {
+inline void Raft<StateMachine, Command>::BecomeCandidate(int32_t term) {
   role_ = candidate;
+  vote_for_ = my_id_;
   BeginNewTerm(term);
+  LOG_INFO("node {} become candidate, term: {}", my_id_, current_term_);
 }
 
 template <typename StateMachine, typename Command>
@@ -449,6 +471,7 @@ inline void Raft<StateMachine, Command>::BecomeLeader() {
   role_ = leader;
   next_index_ = std::vector<int>(num_nodes(), GetLastLogIndex() + 1);
   match_index_ = std::vector<int>(num_nodes(), 0);
+  LOG_INFO("node {} become leader, term: {}", my_id_, current_term_);
 }
 
 }  // namespace bitdb::raft

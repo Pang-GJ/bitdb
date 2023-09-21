@@ -48,7 +48,8 @@ class RpcServer : public TcpApplication {
   void set_reliable(bool reliable) {}
 
  private:
-  co::Task<> OnRequest(TcpConnectionPtr conn, TcpServer& server) override {
+  co::Task<> OnRequest(TcpConnectionPtr conn,
+                       TcpServer& server) noexcept override {
     while (true) {
       IOBuffer buffer;
       auto succ = co_await conn->AsyncReadPacket(&buffer);
