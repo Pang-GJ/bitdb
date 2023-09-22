@@ -45,17 +45,49 @@ struct RequestVoteReply {
 
 template <typename Command>
 struct LogEntry {
-  void serialize(codec::Serializer* serializer) const {}
-  void deserialize(codec::Serializer* serializer) {}
+  Command cmd;
+  int32_t term;
+  void serialize(codec::Serializer* serializer) const {
+    serializer->serialize(cmd);
+    serializer->serialize(term);
+  }
+  void deserialize(codec::Serializer* serializer) {
+    serializer->deserialize(&cmd);
+    serializer->deserialize(&term);
+  }
 };
 
 template <typename Command>
 struct AppendEntriesArgs {
-  void serialize(codec::Serializer* serializer) const {}
-  void deserialize(codec::Serializer* serializer) {}
+  int32_t term;
+  int32_t leader_id;
+  int32_t prev_log_index;
+  int32_t prev_log_term;
+  std::vector<LogEntry<Command>> entries;
+  int32_t leader_commit;
+
+  void serialize(codec::Serializer* serializer) const {
+    serializer->serialize(term);
+    serializer->serialize(leader_id);
+    serializer->serialize(prev_log_index);
+    serializer->serialize(prev_log_term);
+    serializer->serialize(entries);
+    serializer->serialize(leader_commit);
+  }
+  void deserialize(codec::Serializer* serializer) {
+    serializer->deserialize(&term);
+    serializer->deserialize(&leader_id);
+    serializer->deserialize(&prev_log_index);
+    serializer->deserialize(&prev_log_term);
+    serializer->deserialize(&entries);
+    serializer->deserialize(&leader_commit);
+  }
 };
 
 struct AppendEntriesReply {
+  int32_t term;
+  bool success;
+
   void serialize(codec::Serializer* serializer) const {}
   void deserialize(codec::Serializer* serializer) {}
 };

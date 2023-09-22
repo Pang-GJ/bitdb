@@ -94,15 +94,10 @@ class Raft {
   co::Task<> SendRequestVote(int target, RequestVoteArgs arg,
                              int32_t saved_current_term);
 
-  co::Task<> SendAppendEntries(int target, AppendEntriesArgs<Command> arg);
-  co::Task<> HandleAppendEntriesReply(int target,
-                                      const AppendEntriesArgs<Command>& arg,
-                                      const AppendEntriesReply& reply);
-
+  co::Task<> SendAppendEntries(int target, AppendEntriesArgs<Command> arg,
+                               int32_t saved_current_term,
+                               bool is_heartbeat = false);
   co::Task<> SendInstallSnapshot(int target, InstallSnapshotArgs arg);
-  co::Task<> HandleInstallSnapshotReply(int target,
-                                        const InstallSnapshotArgs& arg,
-                                        const InstallSnapshotReply& reply);
 
   int32_t GetLastLogIndex();
   int32_t GetLogTerm(int32_t log_index);
@@ -116,9 +111,8 @@ class Raft {
   void RunBackgroundCommit();
   void RunBackgroundApply();
 
-  std::recursive_mutex mtx_;       // 可重入锁
-  RaftStorage<Command>* storage_;  // to persist raft log
-  StateMachine* state_machine_;    // the state machine that applys the raft log
+  std::recursive_mutex mtx_;     // 可重入锁
+  StateMachine* state_machine_;  // the state machine that applys the raft log
 
   RpcServerPtr rpc_server_;  // rpc server to receive and handle rpc requests
   std::vector<RpcClientPtr>
@@ -138,9 +132,13 @@ class Raft {
 
   /* ----Persistent state on all server----  */
   int32_t current_term_;
-  int vote_for_;  // 给哪个candidate投票
+  int vote_for_;                   // 给哪个candidate投票
+  RaftStorage<Command>* storage_;  // to persist raft log
 
   /* ---- Volatile state on all server----  */
+  int32_t commit_index_;  // index of highest log entry known to be commited
+                          // (init to 0, increases monotonically)
+  int32_t last_applied_;  // index of highest log entry applied to state machine
 
   /* ---- Volatile state on leader----  */
   // need to reinitialize after election
@@ -158,6 +156,8 @@ class Raft {
   ThreadPtr background_thread_apply_;
 
   void StartElection();
+
+  void LeaderSendHeartbeat();
 
   void BeginNewTerm(int32_t term);
   void BecomeFollower(int32_t term);
@@ -184,8 +184,7 @@ inline Raft<StateMachine, Command>::Raft(RpcServerPtr rpc_server,
                                          std::vector<RpcClientPtr> rpc_clients,
                                          int idx, RaftStorage<Command>* storage,
                                          StateMachine* state_machine)
-    : storage_(storage),
-      state_machine_(state_machine),
+    : state_machine_(state_machine),
       rpc_server_(std::move(rpc_server)),
       rpc_clients_(std::move(rpc_clients)),
       my_id_(idx),
@@ -194,6 +193,9 @@ inline Raft<StateMachine, Command>::Raft(RpcServerPtr rpc_server,
       role_(follower),
       current_term_(0),
       vote_for_(-1),
+      storage_(storage),
+      commit_index_(0),
+      last_applied_(0),
       background_thread_election_(nullptr),
       background_thread_heartbeat_(nullptr),
       background_thread_commit_(nullptr),
@@ -243,10 +245,21 @@ inline void Raft<StateMachine, Command>::Stop() {
 
 template <typename StateMachine, typename Command>
 inline bool Raft<StateMachine, Command>::NewCommand(Command cmd, int& term,
-                                                    int& index) {}
+                                                    int& index) {
+  std::lock_guard lock(mtx_);
+  if (is_stopped() || role_ != leader) {
+    return false;
+  }
+  term = current_term_;
+  index = GetLastLogIndex();
+  storage_->AddLog(LogEntry<Command>{cmd, current_term_});
+  storage_->Flush();
+  return true;
+}
 
 template <typename StateMachine, typename Command>
 inline bool Raft<StateMachine, Command>::IsLeader(int& term) {
+  std::lock_guard lock(mtx_);
   term = current_term_;
   return role_ == leader;
 }
@@ -294,7 +307,88 @@ inline RequestVoteReply Raft<StateMachine, Command>::RequestVote(
 template <typename StateMachine, typename Command>
 inline AppendEntriesReply Raft<StateMachine, Command>::AppendEntries(
     const AppendEntriesArgs<Command>& args) {
-  return {};
+  if (is_stopped()) {
+    LOG_INFO("when node {} stop, receive AppendEntries RPC", my_id_);
+  }
+  AppendEntriesReply reply{.success = false};
+  std::lock_guard lock(mtx_);
+  // 1.reply false if term < current_term
+  if (args.term < current_term_ || is_stopped()) {
+    reply.term = current_term_;
+    return reply;
+  }
+  if (args.term > current_term_) {
+    LOG_INFO("node {}'s term out of date in AppendEntries", my_id_);
+    BecomeFollower(args.term);
+  }
+
+  if (args.entries.empty()) {
+    // heartbeat only
+    if (role_ != follower) {
+      BecomeFollower(args.term);
+    }
+    last_received_rpc_time_ = timer::ClockMS();
+    return reply;
+  }
+
+  // 2.reply false if log doesn't contain an entry
+  // at prevLogIndex whose term matches prevLogTerm
+  auto is_log_index_matched = [&](int32_t prev_log_index,
+                                  int32_t prev_log_term) -> bool {
+    if (prev_log_index > GetLastLogIndex()) {
+      return false;
+    }
+    return prev_log_term == GetLogTerm(prev_log_index);
+  };
+
+  if (args.term == current_term_) {
+    if (role_ != follower) {
+      // 如果不是follower，更新为follower
+      BecomeFollower(args.term);
+    }
+    last_received_rpc_time_ = timer::ClockMS();
+
+    if (is_log_index_matched(args.prevLogIndex, args.prevLogTerm)) {
+      reply.success = true;
+
+      // 找到插入点
+      // 索引从PrevLogIndex+1开始的本地日志与RPC发送的新条目间出现任期不匹配的位置。
+      auto log_insert_index = args.prev_log_index + 1;
+      auto new_entries_index = 0;
+      const auto log_size = storage_->log.size();
+      const auto args_entries_size = args.entries.size();
+      while (true) {
+        if (log_insert_index >= log_size ||
+            new_entries_index >= args_entries_size) {
+          break;
+        }
+        if (storage_->log[log_insert_index].term !=
+            args.entries[new_entries_index].term) {
+          break;
+        }
+        ++log_insert_index;
+        ++new_entries_index;
+      }
+
+      // 此时
+      // log_insert_index指向本地日志结尾，或者是与领导者发送日志间存在任期冲突的索引位置
+      // new_entries_index指向请求条目的结尾，或者是与本地日志存在任期冲突的索引位置
+      if (new_entries_index < args_entries_size) {
+        storage_->AddLog(
+            log_insert_index,
+            {args.entries.begin() + new_entries_index, args.entries.end()});
+      }
+
+      // set commit index
+      if (args.leader_commit > commit_index_) {
+        commit_index_ = std::min(args.leader_commit, storage_->log.size() - 1);
+        LOG_INFO("AppendEntries RPC: setting commit index: {}", commit_index_);
+      }
+    }
+  }
+
+  reply.term = current_term_;
+  return reply;
 }
 
 template <typename StateMachine, typename Command>
@@ -309,8 +403,8 @@ inline co::Task<> Raft<StateMachine, Command>::SendRequestVote(
   auto response = co_await rpc_clients_[target]->Call<RequestVoteReply>(
       RPC_REQUEST_VOTE, arg);
   if (response.err_code != net::rpc::RPC_SUCCECC) {
-    LOG_INFO("node {} sending RequestVote RPC to client-{} error", my_id_,
-             target);
+    LOG_ERROR("node {} sending RequestVote RPC to client-{} error", my_id_,
+              target);
     // 失败了重试
     co_return co_await SendRequestVote(target, arg, saved_current_term);
   }
@@ -346,32 +440,82 @@ inline co::Task<> Raft<StateMachine, Command>::SendRequestVote(
 
 template <typename StateMachine, typename Command>
 inline co::Task<> Raft<StateMachine, Command>::SendAppendEntries(
-    int target, AppendEntriesArgs<Command> arg) {}
+    int target, AppendEntriesArgs<Command> arg, int32_t saved_current_term,
+    bool is_heartbeat) {
+  auto response = co_await rpc_clients_[target]->Call<AppendEntriesReply>(
+      RPC_APPEND_ENTRIES, arg);
+  if (response.err_code != net::rpc::RPC_SUCCECC) {
+    LOG_ERROR("node {} send AppendEntries to node {} failed, err_code {}",
+              my_id_, target, response.err_code);
+    // 失败重试
+    co_return co_await SendAppendEntries(target, arg, saved_current_term);
+  }
 
-template <typename StateMachine, typename Command>
-inline co::Task<> Raft<StateMachine, Command>::HandleAppendEntriesReply(
-    int target, const AppendEntriesArgs<Command>& arg,
-    const AppendEntriesReply& reply) {}
+  if (is_heartbeat) {
+    // heart beat only
+    co_return;
+  }
+
+  const AppendEntriesReply reply = response.val();
+  std::lock_guard lock(mtx_);
+  if (reply.term > saved_current_term) {
+    LOG_INFO("node {} term out of date while AppendEntries, change to follower",
+             my_id_);
+    BecomeFollower(reply.term);
+    co_return;
+  }
+  if (role_ == leader && reply.term == saved_current_term) {
+    if (reply.success) {
+      next_index_[target] += arg.entries.size();
+      match_index_[target] = next_index_[target] - 1;
+
+      const auto saved_commit_index = commit_index_;
+      const auto log_size = storage_->log.size();
+      for (auto i = commit_index_ + 1; i < log_size; ++i) {
+        if (storage_->log[i].term == reply.term) {
+          // 这里的 1 是leader自己
+          int match_count = 1;
+          for (auto follower_id : follower_id_set_) {
+            if (match_index_[follower_id] >= i) {
+              ++match_count;
+            }
+          }
+          // 超过半数，可以提交
+          if (match_count * 2 > num_nodes() + 1) {
+            commit_index_ = i;
+          }
+        }
+      }
+
+      if (commit_index_ != saved_commit_index) {
+        LOG_INFO("leader set commit_index to {}", commit_index_);
+      }
+    } else {
+      next_index_[target] -= 1;  // 往前找
+    }
+  }
+}
 
 template <typename StateMachine, typename Command>
 inline co::Task<> Raft<StateMachine, Command>::SendInstallSnapshot(
     int target, InstallSnapshotArgs arg) {}
 
 template <typename StateMachine, typename Command>
-inline co::Task<> Raft<StateMachine, Command>::HandleInstallSnapshotReply(
-    int target, const InstallSnapshotArgs& arg,
-    const InstallSnapshotReply& reply) {}
-
-template <typename StateMachine, typename Command>
 inline int32_t Raft<StateMachine, Command>::GetLastLogIndex() {
-  // TODO(pangguojian): impl this
-  return 0;
+  std::lock_guard lock(mtx_);
+  return storage_->log.size();
 }
 
 template <typename StateMachine, typename Command>
 inline int32_t Raft<StateMachine, Command>::GetLogTerm(int32_t log_index) {
-  // TODO(pangguojian): impl this
-  return 0;
+  std::lock_guard lock(mtx_);
+  if (log_index > GetLastLogIndex()) {
+    return -1;
+  }
+  if (log_index == 0) {
+    return 0;
+  }
+  return storage_->log[log_index - 1].term;
 }
 
 template <typename StateMachine, typename Command>
@@ -391,15 +535,13 @@ inline void Raft<StateMachine, Command>::RunBackgroundElection() {
     }
     {
       std::lock_guard lock(mtx_);
-      if (role_ == leader) {
-        return;
-      }
-
-      const auto random_timeout = rander_.UniformRange(150, 300);
-      const auto time_diff =
-          timer::TimeDiffNow(last_received_rpc_time_).count();
-      if (time_diff > random_timeout) {
-        StartElection();
+      if (role_ == follower || role_ == candidate) {
+        const auto random_timeout = rander_.UniformRange(150, 300);
+        const auto time_diff =
+            timer::TimeDiffNow(last_received_rpc_time_).count();
+        if (time_diff > random_timeout) {
+          StartElection();
+        }
       }
     }
     // 睡10ms
@@ -408,13 +550,68 @@ inline void Raft<StateMachine, Command>::RunBackgroundElection() {
 }
 
 template <typename StateMachine, typename Command>
-inline void Raft<StateMachine, Command>::RunBackgroundHeartbeat() {}
+inline void Raft<StateMachine, Command>::RunBackgroundHeartbeat() {
+  while (true) {
+    if (is_stopped()) {
+      return;
+    }
+    {
+      std::lock_guard lock(mtx_);
+      if (role_ == leader) {
+        LeaderSendHeartbeat();
+      }
+    }
+    // 10ms 一个心跳
+    timer::SleepForMS(10);
+  }
+}
 
 template <typename StateMachine, typename Command>
-inline void Raft<StateMachine, Command>::RunBackgroundCommit() {}
+inline void Raft<StateMachine, Command>::RunBackgroundCommit() {
+  while (true) {
+    if (is_stopped()) {
+      return;
+    }
+    do {
+      std::lock_guard lock(mtx_);
+      const auto num = num_nodes();
+      for (auto i = 0; i < num; ++i) {
+        if (i == my_id_ || GetLastLogIndex() < next_index_[i]) {
+          continue;
+        }
+        const auto prev_log_index = next_index_[i] - 1;
+        AppendEntriesArgs<Command> args{
+            .term = current_term_,
+            .leader_id = my_id_,
+            .leader_commit = commit_index_,
+            .entries = {storage_->log.cbegin() + prev_log_index,
+                        storage_->log.cend()},
+            .prev_log_index = prev_log_index,
+            .prev_log_term = GetLogTerm(prev_log_index),
+        };
+        co_spawn(SendAppendEntries(i, args, current_term_));
+      }
+    } while (false);
+    timer::SleepForMS(10);
+  }
+}
 
 template <typename StateMachine, typename Command>
-inline void Raft<StateMachine, Command>::RunBackgroundApply() {}
+inline void Raft<StateMachine, Command>::RunBackgroundApply() {
+  while (true) {
+    if (is_stopped()) {
+      return;
+    }
+    do {
+      std::lock_guard lock(mtx_);
+      while (commit_index_ > last_applied_) {
+        state_machine_->ApplyLog(storage_->log[last_applied_].cmd);
+        ++last_applied_;
+      }
+    } while (false);
+    timer::SleepForMS(10);
+  }
+}
 
 template <typename StateMachine, typename Command>
 inline void Raft<StateMachine, Command>::StartElection() {
@@ -444,17 +641,46 @@ inline void Raft<StateMachine, Command>::StartElection() {
 }
 
 template <typename StateMachine, typename Command>
+inline void Raft<StateMachine, Command>::LeaderSendHeartbeat() {
+  LOG_INFO("node {} leader send heartbeat", my_id_);
+  std::lock_guard lock(mtx_);
+  int32_t saved_current_term = current_term_;
+  saved_current_term = current_term_;
+  const auto num = num_nodes();
+  for (auto i = 0; i < num; ++i) {
+    if (i == my_id_) {
+      continue;
+    }
+    const auto prev_log_index = next_index_[i] - 1;
+    const auto prev_log_term = GetLogTerm(prev_log_index);
+    AppendEntriesArgs<Command> args{
+        .term = saved_current_term,
+        .leader_id = my_id_,
+        .leader_commit = commit_index_,
+        .entries = {},  // heartbeat
+        .prev_log_index = prev_log_index,
+        .prev_log_term = prev_log_term,
+    };
+    co_spawn(SendAppendEntries(i, args, saved_current_term, true));
+  }
+}
+
+template <typename StateMachine, typename Command>
 inline void Raft<StateMachine, Command>::BeginNewTerm(int32_t term) {
   current_term_ = term;
   last_received_rpc_time_ = timer::ClockMS();
   follower_id_set_.clear();
+
+  storage_->current_term = current_term_;
+  storage_->vote_for = -1;
+  storage_->Flush();
 }
 
 template <typename StateMachine, typename Command>
 inline void Raft<StateMachine, Command>::BecomeFollower(int32_t term) {
   role_ = follower;
-  BeginNewTerm(term);
   vote_for_ = -1;
+  BeginNewTerm(term);
   LOG_INFO("node {} become follower, term: {}", my_id_, current_term_);
 }
 

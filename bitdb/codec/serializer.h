@@ -178,7 +178,7 @@ class Serializer {
 
  private:
   std::vector<char> buffer_;
-  int deserialize_pos_ = 0;
+  size_t deserialize_pos_ = 0;
 };
 
 }  // namespace bitdb::codec

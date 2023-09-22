@@ -54,7 +54,7 @@ class RpcServer : public TcpApplication {
       IOBuffer buffer;
       auto succ = co_await conn->AsyncReadPacket(&buffer);
       if (!succ) {
-        LOG_WARN("RpcServer recv error");
+        LOG_WARN("RpcServer: client closed");
         co_return;
       }
 
@@ -70,7 +70,6 @@ class RpcServer : public TcpApplication {
       delete output_serializer;
     }
     LOG_INFO("RpcServer OnRequest end");
-    co_return;
   }
 
   size_t WritePacket(int fd, const IOBuffer& buffer) {

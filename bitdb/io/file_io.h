@@ -10,9 +10,9 @@ namespace bitdb::io {
 
 class FileIO : public IOHandler {
  public:
-  explicit FileIO(std::string_view file_name) {
-    fd_ = ::open(file_name.data(), O_CREAT | O_RDWR | O_APPEND,
-                 S_IRWXU | S_IROTH);
+  explicit FileIO(std::string_view file_name,
+                  int flags = O_CREAT | O_RDWR | O_APPEND) {
+    fd_ = ::open(file_name.data(), flags, S_IRWXU | S_IROTH);
     if (fd_ < 0) {
       LOG_ERROR("FilIO: open file_name: {} failed, error: {}.", file_name,
                 errno);
