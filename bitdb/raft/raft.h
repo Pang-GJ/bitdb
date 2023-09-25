@@ -348,7 +348,7 @@ inline AppendEntriesReply Raft<StateMachine, Command>::AppendEntries(
     }
     last_received_rpc_time_ = timer::ClockMS();
 
-    if (is_log_index_matched(args.prevLogIndex, args.prevLogTerm)) {
+    if (is_log_index_matched(args.prev_log_index, args.prev_log_term)) {
       reply.success = true;
 
       // 找到插入点
@@ -381,7 +381,8 @@ inline AppendEntriesReply Raft<StateMachine, Command>::AppendEntries(
 
       // set commit index
       if (args.leader_commit > commit_index_) {
-        commit_index_ = std::min(args.leader_commit, storage_->log.size() - 1);
+        commit_index_ = std::min(
+            args.leader_commit, static_cast<int32_t>(storage_->log.size() - 1));
         LOG_INFO("AppendEntries RPC: setting commit index: {}", commit_index_);
       }
     }
@@ -574,6 +575,9 @@ inline void Raft<StateMachine, Command>::RunBackgroundCommit() {
     }
     do {
       std::lock_guard lock(mtx_);
+      if (role_ != leader) {
+        break;
+      }
       const auto num = num_nodes();
       for (auto i = 0; i < num; ++i) {
         if (i == my_id_ || GetLastLogIndex() < next_index_[i]) {
@@ -583,11 +587,11 @@ inline void Raft<StateMachine, Command>::RunBackgroundCommit() {
         AppendEntriesArgs<Command> args{
             .term = current_term_,
             .leader_id = my_id_,
-            .leader_commit = commit_index_,
-            .entries = {storage_->log.cbegin() + prev_log_index,
-                        storage_->log.cend()},
             .prev_log_index = prev_log_index,
             .prev_log_term = GetLogTerm(prev_log_index),
+            .entries = {storage_->log.cbegin() + prev_log_index,
+                        storage_->log.cend()},
+            .leader_commit = commit_index_,
         };
         co_spawn(SendAppendEntries(i, args, current_term_));
       }
@@ -656,10 +660,10 @@ inline void Raft<StateMachine, Command>::LeaderSendHeartbeat() {
     AppendEntriesArgs<Command> args{
         .term = saved_current_term,
         .leader_id = my_id_,
-        .leader_commit = commit_index_,
-        .entries = {},  // heartbeat
         .prev_log_index = prev_log_index,
         .prev_log_term = prev_log_term,
+        .entries = {},  // heartbeat
+        .leader_commit = commit_index_,
     };
     co_spawn(SendAppendEntries(i, args, saved_current_term, true));
   }

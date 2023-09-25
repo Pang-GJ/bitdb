@@ -1,4 +1,5 @@
 #include <chrono>
+#include <memory>
 #include <string>
 #include <thread>
 #include "bitdb/co/scheduler.h"
@@ -55,14 +56,16 @@ bitdb::co::Task<> co_main(std::shared_ptr<bitdb::net::TcpClient> tcp_client) {
 
 int main(int argc, char* argv[]) {
   bitdb::SettingLoggerLevel(common::LogLevel::DEBUG);
-  bitdb::net::rpc::BlockingRpcClient client("127.0.0.1", 12345);
-  int res = client.Call<int>("add", 2, 3).val();
+  auto client =
+      std::make_unique<bitdb::net::rpc::BlockingRpcClient>("127.0.0.1", 12345);
+  int res = client->Call<int>("add", 2, 3).val();
   LOG_INFO("blocking call add response: {}", res);
 
-  Student stu_res = client.Call<Student>("get_stu", "pgj", 21).val();
+  Student stu_res = client->Call<Student>("get_stu", "pgj", 21).val();
   LOG_INFO("bloking call get_stu response: name: {}, age: {}", stu_res.name,
            stu_res.age);
 
+  client.reset();
   auto tcp_client = std::make_shared<bitdb::net::TcpClient>();
   co_spawn(co_main(tcp_client));
   co_run();

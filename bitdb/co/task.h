@@ -3,6 +3,7 @@
 #include <cassert>
 #include <coroutine>
 #include <cstdint>
+#include <exception>
 #include <memory>
 #include <utility>
 
@@ -56,7 +57,7 @@ struct PromiseBase : public Result<T> {
         auto& promise = suspended_coro.promise();
         std::coroutine_handle<> continuation = promise.continuation_;
         if (promise.is_detached_) {
-          LOG_DEBUG("suspended_coro.destroy();");
+          // LOG_DEBUG("suspended_coro.destroy();");
           suspended_coro.destroy();
         }
         return continuation;
@@ -91,7 +92,13 @@ struct Task : noncopyable {
       return Task{std::coroutine_handle<promise_type>::from_promise(*this)};
     }
 
-    void unhandled_exception() { LOG_FATAL("unhandled exception"); }
+    void unhandled_exception() {
+      auto exception = std::current_exception();
+      // if (exception != nullptr) {
+      //   LOG_ERROR("Task exception: {}", exception.what());
+      // }
+      LOG_ERROR("unhandled exception");
+    }
   };
 
   struct TaskAwaiterBase {

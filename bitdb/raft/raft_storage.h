@@ -60,15 +60,29 @@ class RaftStorage {
     }
   }
 
+  // for serializer
+  void serialize(codec::Serializer* serializer) const {
+    serializer->serialize(current_term);
+    serializer->serialize(vote_for);
+    serializer->serialize(log);
+  }
+  void deserialize(codec::Serializer* serializer) {
+    serializer->deserialize(&current_term);
+    serializer->deserialize(&vote_for);
+    serializer->deserialize(&log);
+  }
+
  private:
   std::mutex mtx_;
+  std::string file_path_;
   // use file io to write log
   io::FileIO io_handler_;
 };
 
 template <typename Command>
 inline RaftStorage<Command>::RaftStorage(std::string_view file_dir)
-    : io_handler_(file_dir, O_CREAT | O_RDWR) {
+    : file_path_(file_dir),
+      io_handler_(file_path_ + "/data", O_CREAT | O_RDWR) {
   const auto file_size = io_handler_.Size();
   if (file_size > 0) {
     std::vector<char> buffer(file_size);
@@ -83,7 +97,10 @@ inline RaftStorage<Command>::RaftStorage(std::string_view file_dir)
       log.clear();
     } else {
       codec::Serializer serializer(buffer.cbegin(), buffer.cend());
-      serializer.deserialize(*this);
+      // serializer.deserialize(*this);
+      serializer.deserialize(&current_term);
+      serializer.deserialize(&vote_for);
+      serializer.deserialize(&log);
     }
   } else {
     current_term = 0;

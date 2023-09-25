@@ -48,8 +48,7 @@ class RpcServer : public TcpApplication {
   void set_reliable(bool reliable) {}
 
  private:
-  co::Task<> OnRequest(TcpConnectionPtr conn,
-                       TcpServer& server) noexcept override {
+  co::Task<> OnRequest(TcpConnectionPtr conn, TcpServer& server) override {
     while (true) {
       IOBuffer buffer;
       auto succ = co_await conn->AsyncReadPacket(&buffer);
@@ -63,11 +62,9 @@ class RpcServer : public TcpApplication {
       std::string func_name;
       serializer.deserialize(&func_name);
 
-      codec::Serializer* output_serializer =
-          this->CallImpl(func_name, serializer);
+      auto output_serializer = this->CallImpl(func_name, serializer);
 
-      co_await SendResponse(conn, output_serializer);
-      delete output_serializer;
+      co_await SendResponse(conn, output_serializer.get());
     }
     LOG_INFO("RpcServer OnRequest end");
   }
@@ -111,9 +108,9 @@ class RpcServer : public TcpApplication {
     co_return;
   }
 
-  codec::Serializer* CallImpl(const std::string& name,
-                              codec::Serializer& input_serializer) {
-    auto* output_serializer = new codec::Serializer;
+  std::unique_ptr<codec::Serializer> CallImpl(
+      const std::string& name, codec::Serializer& input_serializer) {
+    auto output_serializer = std::make_unique<codec::Serializer>();
     if (!handlers_.contains(name)) {
       output_serializer->serialize(
           static_cast<RpcResponse<int>::code_type>(RPC_ERR_FUNCTION_NOT_FOUND));
@@ -123,7 +120,7 @@ class RpcServer : public TcpApplication {
       return output_serializer;
     }
     auto& func = handlers_[name];
-    func(&input_serializer, output_serializer);
+    func(&input_serializer, output_serializer.get());
     return output_serializer;
   }
 

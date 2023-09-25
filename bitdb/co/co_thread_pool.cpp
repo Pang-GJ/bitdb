@@ -57,7 +57,7 @@ ThreadPool::ThreadPool(size_t thread_num, bool enable_work_steal,
         continue;
       }
 
-      if (task_item.handle) {
+      if (task_item.handle && !task_item.handle.done()) {
         task_item.handle.resume();
       }
     }
@@ -83,10 +83,12 @@ ThreadPool::ThreadPool(size_t thread_num, bool enable_work_steal,
     cpu_set_t cpuset;
     CPU_ZERO(&cpuset);
     CPU_SET(cpu_ids[i % cpu_num], &cpuset);
-    int res = sched_setaffinity(static_cast<int>(workers_[i].native_handle()),
-                                sizeof(cpu_set_t), &cpuset);
+    int res = sched_setaffinity(workers_[i].native_handle(), sizeof(cpu_set_t),
+                                &cpuset);
     if (res != 0) {
-      LOG_ERROR("error calling sched_setaffinity: {}", res);
+      LOG_WARN(
+          "error calling sched_setaffinity: {}, errno: {}, description: {}",
+          res, errno, strerror(errno));
     }
   }
 }
@@ -98,7 +100,7 @@ ThreadPool::~ThreadPool() {
   }
   for (auto& worker : workers_) {
     if (worker.joinable()) {
-     worker.join();
+      worker.join();
     }
   }
 }

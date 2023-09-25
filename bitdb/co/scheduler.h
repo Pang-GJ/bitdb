@@ -10,17 +10,13 @@ namespace bitdb::co {
 
 class Scheduler {
  public:
-  Scheduler() noexcept = default;
+  Scheduler() noexcept;
 
   void co_spawn(Task<>&& task) noexcept;
 
   template <typename Promise>
   void co_spawn(std::coroutine_handle<Promise> handle) noexcept {
-//    if (handle.promise().thrd_id_ == -1) {
-//      handle.promise().set_thrd(common::detail::ThisThreadId());
-//    }
-//    const int curr_id = handle.promise().thrd_id_ % tp_.GetThreadNum();
-    tp_.ScheduleById(handle, -1);
+    tp_.ScheduleById(handle);
   }
 
   void run();
@@ -29,7 +25,6 @@ class Scheduler {
 
  private:
   co::ThreadPool tp_;
-  std::atomic<int> id_generator_{0};
   std::thread run_thread_;
 };
 

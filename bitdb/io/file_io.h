@@ -2,6 +2,7 @@
 
 #include <fcntl.h>
 #include <unistd.h>
+#include <cstring>
 #include <string>
 #include "bitdb/common/logger.h"
 #include "bitdb/io/io_interface.h"
@@ -14,8 +15,8 @@ class FileIO : public IOHandler {
                   int flags = O_CREAT | O_RDWR | O_APPEND) {
     fd_ = ::open(file_name.data(), flags, S_IRWXU | S_IROTH);
     if (fd_ < 0) {
-      LOG_ERROR("FilIO: open file_name: {} failed, error: {}.", file_name,
-                errno);
+      LOG_ERROR("FilIO: open file_name: {} failed, errno: {}, description: {}",
+                file_name, errno, strerror(errno));
     }
   }
 
