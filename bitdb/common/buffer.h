@@ -24,7 +24,7 @@ template <typename T>
 struct RingBuffer : BufferBase<T> {
  public:
   struct alignas(64) Item {
-    Item() : flag_(0), written_(0) {}
+    Item() : flag_(false), written_(0) {}
 
    private:
     friend RingBuffer<T>;
@@ -145,7 +145,7 @@ class QueueBuffer : BufferBase<T> {
   QueueBuffer()
       : current_read_buffer_(nullptr),
         write_index_(0),
-        flag_(0),
+        flag_(false),
         read_index_(0) {
     SetupNextWriteBuffer();
   }

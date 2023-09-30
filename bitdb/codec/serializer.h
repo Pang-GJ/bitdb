@@ -46,12 +46,14 @@ class Serializer {
   }
 
   template <typename T>
-  std::enable_if_t<has_serialize_method_v<T>, void> serialize(const T& value) {
+  std::enable_if_t<has_method_serialize_v<T, Serializer*>, void> serialize(
+      const T& value) {
     value.serialize(this);
   }
 
   template <typename T>
-  std::enable_if_t<has_deserialize_method_v<T>, void> deserialize(T* value) {
+  std::enable_if_t<has_method_deserialize_v<T, Serializer*>, void> deserialize(
+      T* value) {
     value->deserialize(this);
   }
 
@@ -93,7 +95,7 @@ class Serializer {
   std::enable_if_t<is_sequence_container_type_v<Container>, void> serialize(
       const Container& value) {
     uint32_t size = 0;
-    if constexpr (has_size_method_v<Container>) {
+    if constexpr (has_method_size_v<Container>) {
       size = value.size();
     } else {
       // NOTE(pangguojian): only for std::forward_list

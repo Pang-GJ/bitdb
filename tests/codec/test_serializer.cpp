@@ -1,5 +1,7 @@
 #define DOCTEST_CONFIG_IMPLEMENT_WITH_MAIN
 #include <doctest/doctest.h>
+
+#include <utility>
 #include "bitdb/codec/serializer.h"
 #include "bitdb/net/rpc_all.h"
 using namespace bitdb::codec;  // NOLINT
@@ -8,7 +10,7 @@ using namespace bitdb::codec;  // NOLINT
 class A {
  public:
   A() = default;
-  A(const std::string& name, int age) : name(name), age(age) {}
+  A(std::string name, int age) : name(std::move(name)), age(age) {}
 
   void serialize(Serializer* serializer) const {
     serializer->serialize(name);
@@ -31,8 +33,8 @@ class A {
 class B {
  public:
   B() = default;
-  B(const std::string& address, int salary)
-      : address(address), salary(salary) {}
+  B(std::string address, int salary)
+      : address(std::move(address)), salary(salary) {}
 
   void serialize(Serializer* serializer) const {
     serializer->serialize(address);
@@ -57,8 +59,8 @@ class B {
 class C {
  public:
   C() = default;
-  C(bool isStudent, const std::string& school)
-      : is_student(isStudent), school(school) {}
+  C(bool isStudent, std::string school)
+      : is_student(isStudent), school(std::move(school)) {}
 
   void serialize(Serializer* serializer) const {
     serializer->serialize(is_student);

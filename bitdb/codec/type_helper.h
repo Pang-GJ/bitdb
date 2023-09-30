@@ -3,6 +3,7 @@
 #include <deque>
 #include <forward_list>
 #include <list>
+#include <type_traits>
 #include <utility>
 #include <vector>
 namespace bitdb::codec {
@@ -18,16 +19,16 @@ template <typename T>
 struct HasSerializeMethod {
  private:
   template <typename C>
-  static constexpr auto test(int)
+  static constexpr auto check(int)
       -> decltype(std::declval<C>().serialize(std::declval<Serializer*>()),
                   std::true_type());
 
   template <typename C>
-  static constexpr auto test(...) -> decltype(std::false_type());
+  static constexpr auto check(...) -> decltype(std::false_type());
 
  public:
   static constexpr bool value =
-      std::is_same_v<decltype(test<T>(0)), std::true_type>;
+      std::is_same_v<decltype(check<T>(0)), std::true_type>;
 };
 
 template <typename T>
@@ -38,16 +39,16 @@ template <typename T>
 struct HasDeserializeMethod {
  private:
   template <typename C>
-  static constexpr auto test(int)
+  static constexpr auto check(int)
       -> decltype(std::declval<C>().deserialize(std::declval<Serializer*>()),
                   std::true_type());
 
   template <typename C>
-  static constexpr auto test(...) -> decltype(std::false_type());
+  static constexpr auto check(...) -> decltype(std::false_type());
 
  public:
   static constexpr bool value =
-      std::is_same_v<decltype(test<T>(0)), std::true_type>;
+      std::is_same_v<decltype(check<T>(0)), std::true_type>;
 };
 
 template <typename T>
@@ -58,19 +59,43 @@ template <typename T>
 struct HasSizeMethod {
  private:
   template <typename C>
-  static constexpr auto test(int)
+  static constexpr auto check(int)
       -> decltype(std::declval<C>().size(), std::true_type());
 
   template <typename C>
-  static constexpr auto test(...) -> decltype(std::false_type());
+  static constexpr auto check(...) -> decltype(std::false_type());
 
  public:
   static constexpr bool value =
-      std::is_same_v<decltype(test<T>(0)), std::true_type>;
+      std::is_same_v<decltype(check<T>(0)), std::true_type>;
 };
 
 template <typename T>
 constexpr bool has_size_method_v = HasSizeMethod<T>::value;
+
+// 判断有无成员函数宏
+#define HAS_METHOD(method)                                             \
+  template <typename T, typename... Args>                              \
+  struct has_method_##method {                                         \
+   private:                                                            \
+    template <typename C>                                              \
+    static constexpr auto check(int)                                   \
+        -> decltype(std::declval<C>().method(std::declval<Args>()...), \
+                    std::true_type());                                 \
+    template <typename C>                                              \
+    static constexpr auto check(...) -> decltype(std::false_type());   \
+                                                                       \
+   public:                                                             \
+    static constexpr bool value =                                      \
+        std::is_same_v<decltype(check<T>(0)), std::true_type>;         \
+  };                                                                   \
+  template <typename T, typename... Args>                              \
+  constexpr bool has_method_##method##_v =                             \
+      has_method_##method<T, Args...>::value
+
+HAS_METHOD(serialize);
+HAS_METHOD(deserialize);
+HAS_METHOD(size);
 
 // 默认类型为false
 template <typename T>
